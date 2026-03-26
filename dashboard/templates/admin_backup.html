@@ -1,0 +1,699 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6" x-data="adminPanel()">
+    <!-- Header -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Admin Panel</h1>
+                <p class="text-gray-600 mt-1">Manage API credentials and system configuration</p>
+            </div>
+            <div class="flex space-x-3">
+                <button @click="testAllConnections()" 
+                        :disabled="testing"
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">
+                    <i class="fas fa-check-circle mr-2" :class="{'fa-spin': testing}"></i>
+                    <span x-show="!testing">Test All</span>
+                    <span x-show="testing">Testing...</span>
+                </button>
+                <button @click="saveCredentials()" 
+                        :disabled="saving"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                    <i class="fas fa-save mr-2"></i>
+                    <span x-show="!saving">Save All</span>
+                    <span x-show="saving">Saving...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Connection Status Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Twitter/X</p>
+                    <p class="text-lg font-bold" :class="connectionStatus.twitter ? 'text-green-600' : 'text-red-600'"
+                       x-text="connectionStatus.twitter ? 'Connected' : 'Not Connected'">Not Connected</p>
+                </div>
+                <i class="fab fa-twitter text-2xl" :class="connectionStatus.twitter ? 'text-green-500' : 'text-gray-400'"></i>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">BlueSky</p>
+                    <p class="text-lg font-bold" :class="connectionStatus.bluesky ? 'text-green-600' : 'text-red-600'"
+                       x-text="connectionStatus.bluesky ? 'Connected' : 'Not Connected'">Not Connected</p>
+                </div>
+                <i class="fas fa-cloud text-2xl" :class="connectionStatus.bluesky ? 'text-green-500' : 'text-gray-400'"></i>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Instagram</p>
+                    <p class="text-lg font-bold" :class="connectionStatus.instagram ? 'text-green-600' : 'text-red-600'"
+                       x-text="connectionStatus.instagram ? 'Connected' : 'Not Connected'">Not Connected</p>
+                </div>
+                <i class="fab fa-instagram text-2xl" :class="connectionStatus.instagram ? 'text-green-500' : 'text-gray-400'"></i>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">LinkedIn</p>
+                    <p class="text-lg font-bold" :class="connectionStatus.linkedin ? 'text-green-600' : 'text-red-600'"
+                       x-text="connectionStatus.linkedin ? 'Connected' : 'Not Connected'">Not Connected</p>
+                </div>
+                <i class="fab fa-linkedin text-2xl" :class="connectionStatus.linkedin ? 'text-green-500' : 'text-gray-400'"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Platform Configuration Tabs -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex flex-wrap gap-2 mb-6">
+            <button @click="activeTab = 'twitter'" :class="activeTab === 'twitter' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-4 py-2 rounded-lg font-medium">
+                <i class="fab fa-twitter mr-2"></i>Twitter/X
+            </button>
+            <button @click="activeTab = 'bluesky'" :class="activeTab === 'bluesky' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-4 py-2 rounded-lg font-medium">
+                <i class="fas fa-cloud mr-2"></i>BlueSky
+            </button>
+            <button @click="activeTab = 'instagram'" :class="activeTab === 'instagram' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-4 py-2 rounded-lg font-medium">
+                <i class="fab fa-instagram mr-2"></i>Instagram
+            </button>
+            <button @click="activeTab = 'linkedin'" :class="activeTab === 'linkedin' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-4 py-2 rounded-lg font-medium">
+                <i class="fab fa-linkedin mr-2"></i>LinkedIn
+            </button>
+            <button @click="activeTab = 'email'" :class="activeTab === 'email' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-4 py-2 rounded-lg font-medium">
+                <i class="fas fa-envelope mr-2"></i>Email Services
+            </button>
+            <button @click="activeTab = 'ai'" :class="activeTab === 'ai' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-4 py-2 rounded-lg font-medium">
+                <i class="fas fa-robot mr-2"></i>AI Service
+            </button>
+        </div>
+
+        <!-- Twitter Configuration -->
+        <div x-show="activeTab === 'twitter'" class="space-y-6">
+            <div class="border-l-4 border-blue-500 bg-blue-50 p-4 rounded">
+                <div class="flex">
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-blue-800">Twitter/X API Setup</h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <p>1. Apply for Twitter Developer Account at <a href="https://developer.twitter.com/" target="_blank" class="underline">developer.twitter.com</a></p>
+                            <p>2. Create a new App and generate API keys</p>
+                            <p>3. Enable "Read and Write" permissions</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Associated Brand</label>
+                <select x-model="credentials.twitter.brand" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select Brand</option>
+                    <option value="buildly">Buildly</option>
+                    <option value="foundry">Foundry</option>
+                    <option value="openbuild">Open Build</option>
+                    <option value="radical">Radical Therapy</option>
+                    <option value="oregonsoftware">Oregon Software</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                        <input type="password" x-model="credentials.twitter.api_key" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter Twitter API Key">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API Secret</label>
+                        <input type="password" x-model="credentials.twitter.api_secret" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter Twitter API Secret">
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Access Token</label>
+                        <input type="password" x-model="credentials.twitter.access_token" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter Access Token">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Access Token Secret</label>
+                        <input type="password" x-model="credentials.twitter.access_token_secret" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter Access Token Secret">
+                    </div>
+                </div>
+            </div>
+            <button @click="testConnection('twitter')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                Test Twitter Connection
+            </button>
+            <div x-show="credentials.twitter.brand" class="text-sm text-gray-600 mt-2">
+                Associated with: <span class="font-medium" x-text="credentials.twitter.brand"></span>
+            </div>
+        </div>
+
+        <!-- BlueSky Configuration -->
+        <div x-show="activeTab === 'bluesky'" class="space-y-6">
+            <div class="border-l-4 border-sky-500 bg-sky-50 p-4 rounded">
+                <div class="flex">
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-sky-800">BlueSky Setup</h3>
+                        <div class="mt-2 text-sm text-sky-700">
+                            <p>1. Go to BlueSky Settings → App Passwords</p>
+                            <p>2. Generate a new App Password (not your login password)</p>
+                            <p>3. Use your handle and the app password below</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Associated Brand</label>
+                <select x-model="credentials.bluesky.brand" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500">
+                    <option value="">Select Brand</option>
+                    <option value="buildly">Buildly</option>
+                    <option value="foundry">Foundry</option>
+                    <option value="openbuild">Open Build</option>
+                    <option value="radical">Radical Therapy</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Username/Handle</label>
+                    <input type="text" x-model="credentials.bluesky.username" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
+                           placeholder="your.handle.bsky.social">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">App Password</label>
+                    <input type="password" x-model="credentials.bluesky.app_password" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500"
+                           placeholder="Enter App Password">
+                </div>
+            </div>
+            <button @click="testConnection('bluesky')" class="bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-700">
+                Test BlueSky Connection
+            </button>
+            <div x-show="credentials.bluesky.brand" class="text-sm text-gray-600 mt-2">
+                Associated with: <span class="font-medium" x-text="credentials.bluesky.brand"></span>
+            </div>
+        </div>
+
+        <!-- Instagram Configuration -->
+        <div x-show="activeTab === 'instagram'" class="space-y-6">
+            <div class="border-l-4 border-pink-500 bg-pink-50 p-4 rounded">
+                <div class="flex">
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-pink-800">Instagram Business API</h3>
+                        <div class="mt-2 text-sm text-pink-700">
+                            <p>1. Convert to Instagram Business Account</p>
+                            <p>2. Create Facebook App at <a href="https://developers.facebook.com/" target="_blank" class="underline">developers.facebook.com</a></p>
+                            <p>3. Add Instagram Graph API product</p>
+                            <p>4. Generate Long-Lived Access Token</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Associated Brand</label>
+                <select x-model="credentials.instagram.brand" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500">
+                    <option value="">Select Brand</option>
+                    <option value="buildly">Buildly</option>
+                    <option value="foundry">Foundry</option>
+                    <option value="openbuild">Open Build</option>
+                    <option value="radical">Radical Therapy</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">App ID</label>
+                        <input type="text" x-model="credentials.instagram.app_id" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500"
+                               placeholder="Enter Facebook App ID">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">App Secret</label>
+                        <input type="password" x-model="credentials.instagram.app_secret" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500"
+                               placeholder="Enter App Secret">
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Access Token</label>
+                        <input type="password" x-model="credentials.instagram.access_token" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500"
+                               placeholder="Enter Long-Lived Access Token">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Instagram Business Account ID</label>
+                        <input type="text" x-model="credentials.instagram.account_id" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500"
+                               placeholder="Enter Business Account ID">
+                    </div>
+                </div>
+            </div>
+            <button @click="testConnection('instagram')" class="bg-pink-600 text-white px-4 py-2 rounded-lg hover:bg-pink-700">
+                Test Instagram Connection
+            </button>
+            <div x-show="credentials.instagram.brand" class="text-sm text-gray-600 mt-2">
+                Associated with: <span class="font-medium" x-text="credentials.instagram.brand"></span>
+            </div>
+        </div>
+
+        <!-- LinkedIn Configuration -->
+        <div x-show="activeTab === 'linkedin'" class="space-y-6">
+            <div class="border-l-4 border-blue-600 bg-blue-50 p-4 rounded">
+                <div class="flex">
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-blue-800">LinkedIn API Setup</h3>
+                        <div class="mt-2 text-sm text-blue-700">
+                            <p>1. Create LinkedIn App at <a href="https://developer.linkedin.com/" target="_blank" class="underline">developer.linkedin.com</a></p>
+                            <p>2. Request necessary permissions (w_member_social, r_liteprofile)</p>
+                            <p>3. Complete OAuth 2.0 flow to get access token</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Associated Brand</label>
+                <select x-model="credentials.linkedin.brand" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="">Select Brand</option>
+                    <option value="buildly">Buildly</option>
+                    <option value="foundry">Foundry</option>
+                    <option value="openbuild">Open Build</option>
+                    <option value="radical">Radical Therapy</option>
+                    <option value="oregonsoftware">Oregon Software</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Client ID</label>
+                        <input type="text" x-model="credentials.linkedin.client_id" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter LinkedIn Client ID">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Client Secret</label>
+                        <input type="password" x-model="credentials.linkedin.client_secret" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter Client Secret">
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Access Token</label>
+                        <input type="password" x-model="credentials.linkedin.access_token" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter Access Token">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Refresh Token</label>
+                        <input type="password" x-model="credentials.linkedin.refresh_token" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                               placeholder="Enter Refresh Token (optional)">
+                    </div>
+                </div>
+            </div>
+            <button @click="testConnection('linkedin')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                Test LinkedIn Connection
+            </button>
+            <div x-show="credentials.linkedin.brand" class="text-sm text-gray-600 mt-2">
+                Associated with: <span class="font-medium" x-text="credentials.linkedin.brand"></span>
+            </div>
+        </div>
+
+        <!-- Email Configuration -->
+        <div x-show="activeTab === 'email'" class="space-y-6">
+            <div class="border-l-4 border-green-500 bg-green-50 p-4 rounded">
+                <div class="flex">
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-green-800">Email Service Setup</h3>
+                        <div class="mt-2 text-sm text-green-700">
+                            <p>Configure email service for automated campaigns and notifications</p>
+                            <p>Supports: SendGrid, Mailgun, AWS SES, SMTP</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email Service</label>
+                    <select x-model="credentials.email.service" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                        <option value="">Select Email Service</option>
+                        <option value="sendgrid">SendGrid</option>
+                        <option value="mailgun">Mailgun</option>
+                        <option value="ses">AWS SES</option>
+                        <option value="smtp">Custom SMTP</option>
+                    </select>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">API Key / Username</label>
+                        <input type="password" x-model="credentials.email.api_key" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                               placeholder="Enter API Key or SMTP Username">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Secret / Password</label>
+                        <input type="password" x-model="credentials.email.secret" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                               placeholder="Enter Secret or SMTP Password">
+                    </div>
+                </div>
+                
+                <div x-show="credentials.email.service === 'smtp'" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">SMTP Host</label>
+                        <input type="text" x-model="credentials.email.smtp_host" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                               placeholder="smtp.gmail.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">SMTP Port</label>
+                        <input type="number" x-model="credentials.email.smtp_port" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                               placeholder="587">
+                    </div>
+                </div>
+            </div>
+            <button @click="testConnection('email')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                Test Email Configuration
+            </button>
+        </div>
+
+        <!-- AI Service Configuration -->
+        <div x-show="activeTab === 'ai'" class="space-y-6">
+            <div class="border-l-4 border-purple-500 bg-purple-50 p-4 rounded">
+                <div class="flex">
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-purple-800">AI Service Status</h3>
+                        <div class="mt-2 text-sm text-purple-700">
+                            <p>Testing connection to Ollama AI service at pop-os2.local:11434</p>
+                            <p>Available models: llama3.2:1b, qwen:7b, phi3:3.8b, llava:7b</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-gray-50 p-4 rounded-lg">
+                <h4 class="font-medium text-gray-900 mb-2">Current Configuration:</h4>
+                <div class="space-y-2 text-sm text-gray-700">
+                    <div>Host: <span class="font-mono bg-gray-200 px-2 py-1 rounded">pop-os2.local:11434</span></div>
+                    <div>Default Model: <span class="font-mono bg-gray-200 px-2 py-1 rounded">llama3.2:1b</span></div>
+                    <div>Status: <span x-text="connectionStatus.ai ? '✅ Connected' : '❌ Disconnected'" 
+                              :class="connectionStatus.ai ? 'text-green-600' : 'text-red-600'" class="font-medium"></span></div>
+                </div>
+            </div>
+            
+            <button @click="testConnection('ai')" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">
+                Test AI Connection
+            </button>
+        </div>
+    </div>
+
+    <!-- Environment Variables Export -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h3 class="text-lg font-semibold mb-4">Environment Variables</h3>
+        <p class="text-gray-600 mb-4">Copy these environment variables to your system or .env file:</p>
+        <div class="bg-gray-900 text-green-400 p-4 rounded-lg font-mono text-sm overflow-x-auto">
+            <pre x-text="generateEnvVars()"></pre>
+        </div>
+        <button @click="copyEnvVars()" class="mt-4 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+            <i class="fas fa-copy mr-2"></i>Copy to Clipboard
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function adminPanel() {
+    return {
+        activeTab: 'twitter',
+        saving: false,
+        testing: false,
+        connectionStatus: {
+            ai: false,
+            twitter: false,
+            bluesky: false,
+            instagram: false,
+            linkedin: false,
+            email: false
+        },
+        credentials: {
+            twitter: {
+                brand: '',
+                api_key: '',
+                api_secret: '',
+                access_token: '',
+                access_token_secret: ''
+            },
+            bluesky: {
+                brand: '',
+                username: '',
+                app_password: ''
+            },
+            instagram: {
+                brand: '',
+                app_id: '',
+                app_secret: '',
+                access_token: '',
+                account_id: ''
+            },
+            linkedin: {
+                brand: '',
+                client_id: '',
+                client_secret: '',
+                access_token: '',
+                refresh_token: ''
+            },
+            email: {
+                service: '',
+                api_key: '',
+                secret: '',
+                smtp_host: '',
+                smtp_port: 587
+            }
+        },
+        
+        async init() {
+            await this.loadCredentials();
+            await this.checkConnections();
+        },
+        
+        async loadCredentials() {
+            try {
+                const response = await fetch('/api/admin/credentials');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        // Only load non-sensitive display data
+                        Object.keys(data.credentials).forEach(platform => {
+                            if (this.credentials[platform]) {
+                                Object.keys(data.credentials[platform]).forEach(key => {
+                                    if (data.credentials[platform][key] && !data.credentials[platform][key].includes('***')) {
+                                        this.credentials[platform][key] = data.credentials[platform][key];
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load credentials:', error);
+            }
+        },
+        
+        async checkConnections() {
+            try {
+                const response = await fetch('/api/admin/test-connections');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.connectionStatus = data.status || this.connectionStatus;
+                }
+            } catch (error) {
+                console.error('Failed to check connections:', error);
+            }
+        },
+        
+        async saveCredentials() {
+            this.saving = true;
+            try {
+                const response = await fetch('/api/admin/credentials', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        credentials: this.credentials
+                    })
+                });
+                
+                if (response.ok) {
+                    showNotification('Credentials saved successfully', 'success');
+                    await this.checkConnections();
+                } else {
+                    showNotification('Failed to save credentials', 'error');
+                }
+            } catch (error) {
+                showNotification('Error saving credentials', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+        
+        async testConnection(platform) {
+            try {
+                showNotification(`Testing ${platform} connection...`, 'info');
+                
+                const body = platform === 'ai' ? {} : {
+                    credentials: this.credentials[platform],
+                    brand: this.credentials[platform]?.brand || null
+                };
+                
+                const response = await fetch(`/api/admin/test-connection/${platform}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(body)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.connectionStatus[platform] = true;
+                    showNotification(`${platform} connection successful!`, 'success');
+                } else {
+                    this.connectionStatus[platform] = false;
+                    showNotification(`${platform} connection failed: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showNotification(`Error testing ${platform} connection`, 'error');
+                this.connectionStatus[platform] = false;
+            }
+        },
+        
+        async testAllConnections() {
+            this.testing = true;
+            try {
+                // Test AI first (no credentials needed)
+                await this.testConnection('ai');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Test other platforms
+                for (const platform of ['twitter', 'bluesky', 'instagram', 'linkedin', 'email']) {
+                    if (this.hasCredentials(platform)) {
+                        await this.testConnection(platform);
+                        await new Promise(resolve => setTimeout(resolve, 1000)); // Delay between tests
+                    }
+                }
+            } finally {
+                this.testing = false;
+            }
+        },
+        
+        hasCredentials(platform) {
+            const creds = this.credentials[platform];
+            if (!creds) return false;
+            
+            switch (platform) {
+                case 'twitter':
+                    return creds.api_key && creds.api_secret && creds.access_token && creds.access_token_secret;
+                case 'bluesky':
+                    return creds.username && creds.app_password;
+                case 'instagram':
+                    return creds.app_id && creds.access_token;
+                case 'linkedin':
+                    return creds.client_id && creds.access_token;
+                case 'email':
+                    return creds.service && creds.api_key;
+                default:
+                    return false;
+            }
+        },
+        
+        generateEnvVars() {
+            const vars = [];
+            
+            // Twitter
+            if (this.credentials.twitter.api_key) {
+                vars.push(`TWITTER_API_KEY="${this.credentials.twitter.api_key}"`);
+                vars.push(`TWITTER_API_SECRET="${this.credentials.twitter.api_secret}"`);
+                vars.push(`TWITTER_ACCESS_TOKEN="${this.credentials.twitter.access_token}"`);
+                vars.push(`TWITTER_ACCESS_TOKEN_SECRET="${this.credentials.twitter.access_token_secret}"`);
+            }
+            
+            // BlueSky
+            if (this.credentials.bluesky.username) {
+                vars.push(`BLUESKY_USERNAME="${this.credentials.bluesky.username}"`);
+                vars.push(`BLUESKY_APP_PASSWORD="${this.credentials.bluesky.app_password}"`);
+            }
+            
+            // Instagram
+            if (this.credentials.instagram.app_id) {
+                vars.push(`INSTAGRAM_APP_ID="${this.credentials.instagram.app_id}"`);
+                vars.push(`INSTAGRAM_APP_SECRET="${this.credentials.instagram.app_secret}"`);
+                vars.push(`INSTAGRAM_ACCESS_TOKEN="${this.credentials.instagram.access_token}"`);
+                vars.push(`INSTAGRAM_ACCOUNT_ID="${this.credentials.instagram.account_id}"`);
+            }
+            
+            // LinkedIn
+            if (this.credentials.linkedin.client_id) {
+                vars.push(`LINKEDIN_CLIENT_ID="${this.credentials.linkedin.client_id}"`);
+                vars.push(`LINKEDIN_CLIENT_SECRET="${this.credentials.linkedin.client_secret}"`);
+                vars.push(`LINKEDIN_ACCESS_TOKEN="${this.credentials.linkedin.access_token}"`);
+                if (this.credentials.linkedin.refresh_token) {
+                    vars.push(`LINKEDIN_REFRESH_TOKEN="${this.credentials.linkedin.refresh_token}"`);
+                }
+            }
+            
+            // Email
+            if (this.credentials.email.service) {
+                vars.push(`EMAIL_SERVICE="${this.credentials.email.service}"`);
+                vars.push(`EMAIL_API_KEY="${this.credentials.email.api_key}"`);
+                vars.push(`EMAIL_SECRET="${this.credentials.email.secret}"`);
+                if (this.credentials.email.smtp_host) {
+                    vars.push(`SMTP_HOST="${this.credentials.email.smtp_host}"`);
+                    vars.push(`SMTP_PORT="${this.credentials.email.smtp_port}"`);
+                }
+            }
+            
+            return vars.length > 0 ? vars.join('\n') : '# No credentials configured yet';
+        },
+        
+        async copyEnvVars() {
+            try {
+                await navigator.clipboard.writeText(this.generateEnvVars());
+                showNotification('Environment variables copied to clipboard', 'success');
+            } catch (error) {
+                showNotification('Failed to copy to clipboard', 'error');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

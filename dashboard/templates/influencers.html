@@ -1,0 +1,699 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+<div class="space-y-6" x-data="influencerManager()" @keydown.escape.window="showInfluencerModal = false">
+    <!-- Header -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Influencer Discovery</h1>
+                <p class="text-gray-600 mt-1">Discover and manage social media influencers across all platforms</p>
+            </div>
+            <div class="flex space-x-3">
+                <button @click="runDiscoveryAllBrands()" :disabled="discovering" 
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">
+                    <i class="fas fa-search mr-2" :class="{'fa-spin': discovering}"></i>
+                    <span x-show="!discovering">Discover All Brands</span>
+                    <span x-show="discovering">Discovering...</span>
+                </button>
+                <button @click="generateAllReports()" :disabled="generatingReports" 
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                    <i class="fas fa-file-alt mr-2" :class="{'fa-spin': generatingReports}"></i>
+                    <span x-show="!generatingReports">Generate Reports</span>
+                    <span x-show="generatingReports">Generating...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Influencers</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="stats.total_influencers">0</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-users text-blue-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Reach</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="formatNumber(stats.total_reach)">0</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-chart-line text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Avg Engagement</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="stats.average_engagement + '%'">0%</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-heart text-purple-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">High Alignment</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="stats.high_alignment_count">0</p>
+                </div>
+                <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-star text-orange-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brand Filter -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">Filter by Brand</h3>
+            <button @click="selectedBrand = 'all'" :class="selectedBrand === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-3 py-1 rounded-lg text-sm font-medium">
+                All Brands
+            </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <template x-for="brand in brands" :key="`brand-filter-${brand}`">
+                <button @click="selectedBrand = brand" 
+                        :class="selectedBrand === brand ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                        class="px-4 py-2 rounded-lg font-medium capitalize">
+                    <span x-text="brand"></span>
+                </button>
+            </template>
+        </div>
+    </div>
+
+    <!-- Brand Discovery Controls -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h3 class="text-lg font-semibold mb-6">Brand Discovery</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <template x-for="brand in brands" :key="`brand-discovery-${brand}`">
+                <div class="border rounded-lg p-4 hover:shadow-lg transition-shadow" x-show="selectedBrand === 'all' || selectedBrand === brand">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h4 class="font-semibold capitalize" x-text="brand"></h4>
+                            <p class="text-sm text-gray-600" x-text="getInfluencerCount(brand) + ' influencers found'"></p>
+                        </div>
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <i class="fas fa-search text-blue-600"></i>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <button @click="runBrandDiscovery(brand)" :disabled="discovering"
+                                class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+                            <i class="fas fa-search mr-2"></i>Discover Influencers
+                        </button>
+                        <button @click="viewBrandReport(brand)" 
+                                class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm">
+                            <i class="fas fa-chart-bar mr-2"></i>View Report
+                        </button>
+                        <button @click="generateBrandReport(brand)" :disabled="generatingReports"
+                                class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">
+                            <i class="fas fa-file-download mr-2"></i>Generate Report
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Influencer List -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold">Discovered Influencers</h3>
+            <div class="flex space-x-2">
+                <select x-model="platformFilter" class="px-3 py-1 border rounded-lg text-sm">
+                    <option value="all">All Platforms</option>
+                    <option value="youtube">YouTube</option>
+                    <option value="instagram">Instagram</option>
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="twitter">Twitter</option>
+                    <option value="podcast">Podcast</option>
+                </select>
+                <button @click="loadInfluencers()" class="text-blue-600 hover:text-blue-800">
+                    <i class="fas fa-refresh mr-1"></i>Refresh
+                </button>
+                <button @click="syncInfluencersToContacts()" :disabled="syncing" class="ml-2 bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50">
+                    <i class="fas fa-sync mr-1" :class="{'fa-spin': syncing}"></i>
+                    <span x-text="syncing ? 'Syncing...' : 'Sync to Contacts'"></span>
+                </button>
+            </div>
+        </div>
+        
+        <div x-show="loadingInfluencers" class="text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+            <p class="text-gray-500 mt-2">Loading influencers...</p>
+        </div>
+        
+        <div x-show="!loadingInfluencers && filteredInfluencers.length === 0" class="text-center py-8 text-gray-500">
+            <i class="fas fa-users text-3xl mb-2"></i>
+            <p>No influencers found for the selected criteria.</p>
+            <p class="text-sm">Try running discovery or changing the filters.</p>
+        </div>
+        
+        <div x-show="!loadingInfluencers && filteredInfluencers.length > 0" class="overflow-x-auto">
+            <table class="min-w-full table-fixed">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">Influencer</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Brand</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Platform</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Reach</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Engagement</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Alignment</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Social Links</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="influencer in filteredInfluencers" :key="`influencer-${influencer.id}`">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-2 py-2">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-8 w-8">
+                                        <div class="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                            <i :class="getPlatformIcon(influencer.primary_platform)" class="text-gray-600 text-sm"></i>
+                                        </div>
+                                    </div>
+                                    <div class="ml-2 min-w-0 flex-1">
+                                        <div class="text-xs font-medium text-gray-900 truncate" x-text="influencer.name" :title="influencer.name"></div>
+                                        <div class="text-xs text-gray-500 truncate" x-text="influencer.niche" :title="influencer.niche"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-2 py-2">
+                                <span class="inline-flex px-1 py-0.5 text-xs font-semibold rounded bg-blue-100 text-blue-800 capitalize" 
+                                      x-text="influencer.brand"></span>
+                            </td>
+                            <td class="px-2 py-2">
+                                <span class="inline-flex px-1 py-0.5 text-xs font-semibold rounded bg-purple-100 text-purple-800 capitalize" 
+                                      x-text="influencer.primary_platform"></span>
+                            </td>
+                            <td class="px-2 py-2 text-xs text-gray-900" x-text="formatNumber(influencer.total_reach)"></td>
+                            <td class="px-2 py-2 text-xs text-gray-900" x-text="influencer.avg_engagement_rate + '%'"></td>
+                            <td class="px-2 py-2">
+                                <div class="flex items-center">
+                                    <div class="text-xs text-gray-900" x-text="Math.round(influencer.brand_alignment_score * 100) + '%'"></div>
+                                    <div class="ml-1 flex">
+                                        <template x-for="i in 5" :key="i">
+                                            <i class="fas fa-star text-xs" 
+                                               :class="i <= Math.round(influencer.brand_alignment_score * 5) ? 'text-yellow-400' : 'text-gray-300'"></i>
+                                        </template>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-2 py-2">
+                                <!-- Social Media Links -->
+                                <div class="flex items-center space-x-1 flex-wrap">
+                                    <template x-for="link in getSocialLinks(influencer.social_links)" :key="link.platform">
+                                        <a :href="link.url" target="_blank" 
+                                           :title="isLinkedInSearch(link.url) ? `Search for ${link.platform} profiles` : `${link.platform} Profile`"
+                                           class="text-gray-600 hover:text-blue-600 transition-colors">
+                                            <i :class="isLinkedInSearch(link.url) ? 'fas fa-search' : getPlatformIcon(link.platform)" 
+                                               class="text-sm"></i>
+                                        </a>
+                                    </template>
+                                    
+                                    <!-- Special display for podcasts -->
+                                    <template x-if="influencer.primary_platform === 'podcast' && influencer.contact_email">
+                                        <a :href="'mailto:' + influencer.contact_email" 
+                                           title="Contact for Guest Opportunities"
+                                           class="text-purple-600 hover:text-purple-800 transition-colors">
+                                            <i class="fas fa-envelope text-sm"></i>
+                                        </a>
+                                    </template>
+                                    
+                                    <template x-if="(!influencer.social_links || getSocialLinks(influencer.social_links).length === 0) && influencer.primary_platform !== 'podcast'">
+                                        <span class="text-gray-400 text-xs">No links</span>
+                                    </template>
+                                    <template x-if="influencer.primary_platform === 'podcast' && !influencer.contact_email && (!influencer.social_links || getSocialLinks(influencer.social_links).length === 0)">
+                                        <span class="text-purple-400 text-xs">Contact via details</span>
+                                    </template>
+                                </div>
+                            </td>
+                            <td class="px-2 py-2 text-xs font-medium space-x-1">
+                                <button @click="viewInfluencerDetails(influencer)" class="text-green-600 hover:text-green-900" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button @click="markInfluencerDeleted(influencer)" class="text-red-600 hover:text-red-900" title="Mark as deleted">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Influencer Detail Modal -->
+<div x-show="showInfluencerModal" x-cloak class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between pb-3 border-b">
+            <h3 class="text-lg font-semibold">Influencer Details</h3>
+            <button @click="showInfluencerModal = false" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="mt-4" x-show="selectedInfluencer">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Basic Info -->
+                <div>
+                    <h4 class="font-semibold mb-3">Basic Information</h4>
+                    <div class="space-y-3 text-sm">
+                        <div><strong>Name:</strong> <span x-text="selectedInfluencer?.name"></span></div>
+                        <div><strong>Brand:</strong> <span x-text="selectedInfluencer?.brand" class="capitalize"></span></div>
+                        <div><strong>Primary Platform:</strong> 
+                            <span class="inline-flex items-center space-x-1">
+                                <i :class="getPlatformIcon(selectedInfluencer?.primary_platform)"></i>
+                                <span x-text="selectedInfluencer?.primary_platform" class="capitalize"></span>
+                            </span>
+                        </div>
+                        <div><strong>Niche:</strong> <span x-text="selectedInfluencer?.niche || 'N/A'"></span></div>
+                        <div><strong>Followers:</strong> <span x-text="formatNumber(selectedInfluencer?.total_reach)"></span></div>
+                        <div><strong>Engagement Rate:</strong> <span x-text="selectedInfluencer?.avg_engagement_rate + '%'"></span></div>
+                        <div><strong>Brand Alignment:</strong> 
+                            <div class="flex items-center space-x-2">
+                                <span x-text="Math.round(selectedInfluencer?.brand_alignment_score * 100) + '%'"></span>
+                                <div class="flex">
+                                    <template x-for="i in 5" :key="i">
+                                        <i class="fas fa-star text-xs" 
+                                           :class="i <= Math.round(selectedInfluencer?.brand_alignment_score * 5) ? 'text-yellow-400' : 'text-gray-300'"></i>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Bio -->
+                    <div class="mt-4" x-show="selectedInfluencer?.bio_summary">
+                        <h5 class="font-medium mb-2">Bio Summary</h5>
+                        <p class="text-sm text-gray-700 bg-gray-50 p-3 rounded" x-text="selectedInfluencer?.bio_summary"></p>
+                    </div>
+                </div>
+                
+                <!-- Social Profiles & Contact -->
+                <div>
+                    <h4 class="font-semibold mb-3">Social Profiles</h4>
+                    <div class="space-y-2">
+                        <template x-for="link in getSocialLinks(selectedInfluencer?.social_links || '')" :key="link.platform">
+                            <div class="flex items-center space-x-2">
+                                <a :href="link.url" target="_blank" 
+                                   class="flex items-center space-x-3 text-sm bg-gray-100 hover:bg-gray-200 px-4 py-3 rounded-lg transition-colors w-full">
+                                    <i :class="isLinkedInSearch(link.url) ? 'fas fa-search' : getPlatformIcon(link.platform)" class="text-lg"></i>
+                                    <div class="flex-1">
+                                        <div class="font-medium capitalize" x-text="isLinkedInSearch(link.url) ? 'Search ' + link.platform + ' Profiles' : link.platform + ' Profile'"></div>
+                                        <div class="text-xs text-gray-500" x-text="isLinkedInSearch(link.url) ? 'Find related professionals on ' + link.platform : link.url"></div>
+                                    </div>
+                                    <i class="fas fa-external-link-alt text-xs text-gray-400"></i>
+                                </a>
+                            </div>
+                        </template>
+                        <template x-if="getSocialLinks(selectedInfluencer?.social_links || '').length === 0">
+                            <div class="text-gray-500 text-sm py-4 text-center">
+                                No social media profiles available
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Contact Methods -->
+                    <div class="mt-6">
+                        <h5 class="font-medium mb-2">How to Contact</h5>
+                        <div class="space-y-2 text-sm">
+                            <template x-if="selectedInfluencer?.contact_email">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fas fa-envelope text-gray-500"></i>
+                                    <a :href="'mailto:' + selectedInfluencer.contact_email" class="text-blue-600 hover:underline" x-text="selectedInfluencer.contact_email"></a>
+                                </div>
+                            </template>
+                            
+                            <!-- Podcast-specific contact info -->
+                            <template x-if="selectedInfluencer?.primary_platform === 'podcast'">
+                                <div class="bg-purple-50 p-3 rounded border-l-4 border-purple-400">
+                                    <div class="flex items-center space-x-2 mb-2">
+                                        <i class="fas fa-microphone text-purple-600"></i>
+                                        <span class="font-medium text-purple-800">Podcast Guest Opportunity</span>
+                                    </div>
+                                    <template x-if="selectedInfluencer?.guest_application_url">
+                                        <div class="mb-2">
+                                            <a :href="selectedInfluencer.guest_application_url" target="_blank" 
+                                               class="text-purple-600 hover:underline text-sm">
+                                                <i class="fas fa-external-link-alt mr-1"></i>Guest Application Form
+                                            </a>
+                                        </div>
+                                    </template>
+                                    <div class="text-xs text-purple-700">
+                                        💡 <strong>Tip:</strong> Listen to a recent episode before reaching out to understand their interview style and topics.
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <div class="bg-blue-50 p-3 rounded text-xs text-gray-600">
+                                <i class="fas fa-lightbulb text-blue-500 mr-1"></i>
+                                <strong>Outreach Tip:</strong> Start with engagement on their posts, then send a personalized message highlighting mutual interests and clear collaboration benefits.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Outreach Notes -->
+                    <div class="mt-4" x-show="selectedInfluencer?.outreach_notes">
+                        <h5 class="font-medium mb-2">Outreach Notes</h5>
+                        <p class="text-sm text-gray-700 bg-yellow-50 p-3 rounded border-l-4 border-yellow-400" x-text="selectedInfluencer?.outreach_notes"></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex justify-between items-center mt-6 pt-4 border-t">
+                <div class="flex space-x-2">
+                    <button @click="syncToContacts(selectedInfluencer)" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        <i class="fas fa-sync mr-2"></i>Sync to CRM
+                    </button>
+                </div>
+                <button @click="showInfluencerModal = false" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function influencerManager() {
+    return {
+        discovering: false,
+        generatingReports: false,
+        loadingInfluencers: false,
+        syncing: false,
+        showInfluencerModal: false,
+        selectedInfluencer: null,
+        selectedBrand: 'all',
+        platformFilter: 'all',
+        brands: ['foundry', 'buildly', 'open_build', 'radical_therapy'],
+        influencers: [],
+        stats: {
+            total_influencers: 0,
+            total_reach: 0,
+            average_engagement: 0,
+            high_alignment_count: 0
+        },
+        
+        init() {
+            this.loadStats();
+            this.loadInfluencers();
+        },
+        
+        get filteredInfluencers() {
+            let filtered = this.influencers;
+            
+            if (this.selectedBrand !== 'all') {
+                filtered = filtered.filter(inf => inf.brand === this.selectedBrand);
+            }
+            
+            if (this.platformFilter !== 'all') {
+                filtered = filtered.filter(inf => inf.primary_platform === this.platformFilter);
+            }
+            
+            return filtered;
+        },
+        
+        async loadStats() {
+            try {
+                const response = await fetch('/api/influencers/stats');
+                if (response.ok) {
+                    this.stats = await response.json();
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        },
+        
+        async loadInfluencers() {
+            this.loadingInfluencers = true;
+            try {
+                const response = await fetch('/api/influencers/list');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.influencers = data.influencers || [];
+                }
+            } catch (error) {
+                console.error('Error loading influencers:', error);
+            } finally {
+                this.loadingInfluencers = false;
+            }
+        },
+        
+        async runBrandDiscovery(brand) {
+            this.discovering = true;
+            try {
+                const response = await fetch(`/api/influencers/discover/${brand}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    const influencersFound = result.summary ? result.summary.total_discovered : result.total_discovered || 0;
+                    alert(`Discovery completed for ${brand}! Found ${influencersFound} new influencers.`);
+                    this.loadInfluencers();
+                    this.loadStats();
+                } else {
+                    alert('Discovery failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Discovery error:', error);
+                alert('Discovery failed. Please check the console for details.');
+            } finally {
+                this.discovering = false;
+            }
+        },
+        
+        async runDiscoveryAllBrands() {
+            this.discovering = true;
+            try {
+                const promises = this.brands.map(brand => 
+                    fetch(`/api/influencers/discover/${brand}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({})
+                    })
+                );
+                
+                await Promise.all(promises);
+                alert('Discovery completed for all brands!');
+                this.loadInfluencers();
+                this.loadStats();
+            } catch (error) {
+                console.error('Discovery error:', error);
+                alert('Discovery failed for some brands. Please try individual discovery.');
+            } finally {
+                this.discovering = false;
+            }
+        },
+        
+        async viewBrandReport(brand) {
+            try {
+                const response = await fetch(`/api/influencers/report/${brand}`);
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.report.url) {
+                        // Open report in new tab
+                        window.open(result.report.url, '_blank');
+                    } else {
+                        alert(`No report available for ${brand}. Please generate one first.`);
+                    }
+                } else {
+                    alert(`No report available for ${brand}. Please generate one first.`);
+                }
+            } catch (error) {
+                console.error('Report viewing error:', error);
+                alert('Failed to view report. Please try again.');
+            }
+        },
+        
+        async generateBrandReport(brand) {
+            this.generatingReports = true;
+            try {
+                const response = await fetch(`/api/influencers/report/${brand}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    alert(`Report generated for ${brand}!`);
+                } else {
+                    alert(`Failed to generate report for ${brand}.`);
+                }
+            } catch (error) {
+                console.error('Report generation error:', error);
+                alert('Report generation failed. Please try again.');
+            } finally {
+                this.generatingReports = false;
+            }
+        },
+        
+        async generateAllReports() {
+            this.generatingReports = true;
+            try {
+                const promises = this.brands.map(brand => 
+                    fetch(`/api/influencers/report/${brand}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    })
+                );
+                
+                await Promise.all(promises);
+                alert('Reports generated for all brands!');
+            } catch (error) {
+                console.error('Report generation error:', error);
+                alert('Report generation failed for some brands.');
+            } finally {
+                this.generatingReports = false;
+            }
+        },
+        
+        getInfluencerCount(brand) {
+            return this.influencers.filter(inf => inf.brand === brand).length;
+        },
+        
+        getPlatformIcon(platform) {
+            const icons = {
+                youtube: 'fab fa-youtube',
+                instagram: 'fab fa-instagram',
+                linkedin: 'fab fa-linkedin',
+                twitter: 'fab fa-twitter',
+                tiktok: 'fab fa-tiktok',
+                bluesky: 'fas fa-cloud',
+                mastodon: 'fab fa-mastodon',
+                podcast: 'fas fa-microphone'
+            };
+            return icons[platform] || 'fas fa-user';
+        },
+
+        isLinkedInSearch(url) {
+            return url && url.includes('linkedin.com/search');
+        },
+        
+        formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num?.toString() || '0';
+        },
+        
+        getSocialLinks(socialLinks) {
+            if (!socialLinks) return [];
+            // socialLinks format: "platform:url,platform:url"
+            const links = socialLinks.split(',');
+            return links.map(link => {
+                if (link.includes(':')) {
+                    const [platform, ...urlParts] = link.split(':');
+                    const url = urlParts.join(':').trim();
+                    const platformName = platform.trim();
+                    
+                    // Skip links with empty URLs
+                    if (!url) return null;
+                    
+                    return {
+                        platform: platformName,
+                        url: url
+                    };
+                }
+                return null;
+            }).filter(link => link !== null);
+        },
+        
+        async markInfluencerDeleted(influencer) {
+            if (!confirm(`Mark "${influencer.name}" as deleted? This will hide them from future discoveries.`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/influencers/${influencer.id}/delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ soft_delete: true })
+                });
+                
+                if (response.ok) {
+                    alert('Influencer marked as deleted.');
+                    this.loadInfluencers(); // Refresh the list
+                } else {
+                    alert('Failed to delete influencer.');
+                }
+            } catch (error) {
+                console.error('Error deleting influencer:', error);
+                alert('Error deleting influencer. Please try again.');
+            }
+        },
+        
+        async syncInfluencersToContacts() {
+            this.syncing = true;
+            try {
+                const response = await fetch('/api/influencers/sync-to-contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`✅ Successfully synced ${result.synced_count} influencers to contacts system!`);
+                } else {
+                    const error = await response.json();
+                    alert(`❌ Failed to sync influencers: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error syncing influencers:', error);
+                alert('❌ Error syncing influencers. Please try again.');
+            } finally {
+                this.syncing = false;
+            }
+        },
+        
+        viewInfluencerDetails(influencer) {
+            this.selectedInfluencer = influencer;
+            this.showInfluencerModal = true;
+        },
+        
+        async syncToContacts(influencer) {
+            if (!influencer) return;
+            
+            try {
+                const response = await fetch('/api/influencers/sync-to-contacts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ influencer_ids: [influencer.id] })
+                });
+                
+                if (response.ok) {
+                    alert(`${influencer.name} has been synced to CRM contacts!`);
+                } else {
+                    alert('Failed to sync to CRM. Please try again.');
+                }
+            } catch (error) {
+                console.error('Sync error:', error);
+                alert('Sync failed. Please check the console.');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

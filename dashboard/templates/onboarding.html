@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to ForgeMarketing - First Time Setup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .onboarding-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .step {
+            display: none;
+        }
+        
+        .step.active {
+            display: block;
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .step-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            transition: all 0.3s;
+        }
+        
+        .step-dot.active {
+            background: #667eea;
+            transform: scale(1.2);
+        }
+        
+        .step-dot.completed {
+            background: #4caf50;
+        }
+        
+        .form-group {
+            margin-bottom: 24px;
+        }
+        
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .help-text {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+        
+        .brand-list {
+            border: 2px dashed #e0e0e0;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .brand-item {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .brand-item-info {
+            flex: 1;
+        }
+        
+        .brand-item-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .brand-item-url {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+        
+        .btn-danger {
+            background: #f44336;
+            color: white;
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+        
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+        
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn-add {
+            background: #2196F3;
+            color: white;
+            margin-top: 8px;
+        }
+        
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 32px;
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #4caf50;
+        }
+        
+        .alert-error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #f44336;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        
+        @media (max-width: 600px) {
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .loader {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .loader.active {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="onboarding-container">
+        <div class="header">
+            <h1>🚀 Welcome to ForgeMarketing</h1>
+            <p>Let's get your marketing automation platform set up</p>
+        </div>
+        
+        <div class="content">
+            <div class="step-indicator">
+                <div class="step-dot active" data-step="1"></div>
+                <div class="step-dot" data-step="2"></div>
+                <div class="step-dot" data-step="3"></div>
+                <div class="step-dot" data-step="4"></div>
+            </div>
+            
+            <div id="alert-container"></div>
+            
+            <!-- Step 1: System Configuration -->
+            <div class="step active" data-step="1">
+                <h2 class="section-title">📋 System Configuration</h2>
+                <p style="margin-bottom: 24px; color: #666;">Configure your basic system settings</p>
+                
+                <div class="form-group">
+                    <label for="admin_email">Admin Email Address *</label>
+                    <input type="email" id="admin_email" required placeholder="admin@yourcompany.com">
+                    <div class="help-text">This email will receive system notifications and reports</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="company_name">Company Name *</label>
+                    <input type="text" id="company_name" required placeholder="Your Company">
+                    <div class="help-text">Your organization name</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="timezone">Timezone</label>
+                    <select id="timezone">
+                        <option value="America/Los_Angeles">Pacific Time (PT)</option>
+                        <option value="America/Denver">Mountain Time (MT)</option>
+                        <option value="America/Chicago">Central Time (CT)</option>
+                        <option value="America/New_York">Eastern Time (ET)</option>
+                        <option value="UTC">UTC</option>
+                    </select>
+                </div>
+            </div>
+            
+            <!-- Step 2: Email Configuration -->
+            <div class="step" data-step="2">
+                <h2 class="section-title">📧 Email Configuration</h2>
+                <p style="margin-bottom: 24px; color: #666;">Set up your email service provider</p>
+                
+                <div class="form-group">
+                    <label for="email_provider">Email Service Provider</label>
+                    <select id="email_provider">
+                        <option value="mailersend">MailerSend</option>
+                        <option value="brevo">Brevo (Sendinblue)</option>
+                        <option value="smtp">Custom SMTP</option>
+                    </select>
+                </div>
+                
+                <div id="mailersend_config">
+                    <div class="form-group">
+                        <label for="mailersend_api_key">MailerSend API Key</label>
+                        <input type="password" id="mailersend_api_key" placeholder="mlsn_xxxxx">
+                        <div class="help-text">Get your API key from mailersend.com</div>
+                    </div>
+                </div>
+                
+                <div id="brevo_config" style="display: none;">
+                    <div class="form-group">
+                        <label for="brevo_api_key">Brevo API Key</label>
+                        <input type="password" id="brevo_api_key" placeholder="xkeysib-xxxxx">
+                    </div>
+                    <div class="form-group">
+                        <label for="brevo_smtp_user">SMTP Username</label>
+                        <input type="text" id="brevo_smtp_user">
+                    </div>
+                    <div class="form-group">
+                        <label for="brevo_smtp_password">SMTP Password</label>
+                        <input type="password" id="brevo_smtp_password">
+                    </div>
+                </div>
+                
+                <div id="smtp_config" style="display: none;">
+                    <div class="config-grid">
+                        <div class="form-group">
+                            <label for="smtp_host">SMTP Host</label>
+                            <input type="text" id="smtp_host" placeholder="smtp.gmail.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="smtp_port">SMTP Port</label>
+                            <input type="number" id="smtp_port" placeholder="587">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="smtp_username">SMTP Username</label>
+                        <input type="text" id="smtp_username">
+                    </div>
+                    <div class="form-group">
+                        <label for="smtp_password">SMTP Password</label>
+                        <input type="password" id="smtp_password">
+                    </div>
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="skip_email">
+                    <label for="skip_email" style="margin: 0;">Skip email configuration (can be set up later)</label>
+                </div>
+            </div>
+            
+            <!-- Step 3: Add Brands -->
+            <div class="step" data-step="3">
+                <h2 class="section-title">🏢 Add Your Brands</h2>
+                <p style="margin-bottom: 24px; color: #666;">Add the brands you want to manage (you can add more later)</p>
+                
+                <div class="brand-list" id="brand-list">
+                    <p style="color: #999; text-align: center;" id="no-brands-msg">No brands added yet</p>
+                </div>
+                
+                <div style="border: 2px solid #e0e0e0; border-radius: 8px; padding: 20px; background: #fafafa;">
+                    <h3 style="margin-bottom: 16px; color: #333;">Add New Brand</h3>
+                    
+                    <div class="form-group">
+                        <label for="brand_name">Brand Name (lowercase, no spaces) *</label>
+                        <input type="text" id="brand_name" placeholder="mycompany" pattern="[a-z0-9]+" required>
+                        <div class="help-text">Example: buildly, acmecorp, myapp</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="brand_display_name">Display Name *</label>
+                        <input type="text" id="brand_display_name" placeholder="My Company" required>
+                        <div class="help-text">How the brand name appears in the UI</div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="brand_website">Website URL *</label>
+                        <input type="url" id="brand_website" placeholder="https://example.com" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="brand_description">Description</label>
+                        <textarea id="brand_description" placeholder="Brief description of your brand..."></textarea>
+                    </div>
+                    
+                    <button class="btn btn-add" onclick="addBrand()">➕ Add Brand</button>
+                </div>
+            </div>
+            
+            <!-- Step 4: Review & Complete -->
+            <div class="step" data-step="4">
+                <h2 class="section-title">✅ Review & Complete</h2>
+                <p style="margin-bottom: 24px; color: #666;">Review your configuration before finishing setup</p>
+                
+                <div id="review-content" style="background: #f5f5f5; padding: 20px; border-radius: 8px;">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+                
+                <div class="checkbox-group" style="margin-top: 20px;">
+                    <input type="checkbox" id="confirm_setup">
+                    <label for="confirm_setup" style="margin: 0;">I confirm that the information above is correct</label>
+                </div>
+            </div>
+            
+            <!-- Navigation Buttons -->
+            <div class="button-group">
+                <button class="btn btn-secondary" id="prev-btn" onclick="previousStep()" style="display: none;">← Previous</button>
+                <div></div>
+                <button class="btn btn-primary" id="next-btn" onclick="nextStep()">Next →</button>
+                <button class="btn btn-success" id="finish-btn" onclick="finishSetup()" style="display: none;">🚀 Complete Setup</button>
+            </div>
+            
+            <!-- Loading State -->
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <p>Setting up your system...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentStep = 1;
+        const totalSteps = 4;
+        const brands = [];
+        
+        // Email provider toggle
+        document.getElementById('email_provider').addEventListener('change', function() {
+            const provider = this.value;
+            document.getElementById('mailersend_config').style.display = provider === 'mailersend' ? 'block' : 'none';
+            document.getElementById('brevo_config').style.display = provider === 'brevo' ? 'block' : 'none';
+            document.getElementById('smtp_config').style.display = provider === 'smtp' ? 'block' : 'none';
+        });
+        
+        function showAlert(message, type = 'success') {
+            const alertContainer = document.getElementById('alert-container');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alertContainer.innerHTML = '';
+            alertContainer.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+        
+        function updateStepIndicator() {
+            document.querySelectorAll('.step-dot').forEach((dot, index) => {
+                const stepNum = index + 1;
+                dot.classList.remove('active', 'completed');
+                
+                if (stepNum < currentStep) {
+                    dot.classList.add('completed');
+                } else if (stepNum === currentStep) {
+                    dot.classList.add('active');
+                }
+            });
+        }
+        
+        function showStep(stepNum) {
+            document.querySelectorAll('.step').forEach(step => {
+                step.classList.remove('active');
+            });
+            
+            document.querySelector(`.step[data-step="${stepNum}"]`).classList.add('active');
+            
+            // Update button visibility
+            document.getElementById('prev-btn').style.display = stepNum === 1 ? 'none' : 'block';
+            document.getElementById('next-btn').style.display = stepNum === totalSteps ? 'none' : 'block';
+            document.getElementById('finish-btn').style.display = stepNum === totalSteps ? 'block' : 'none';
+            
+            updateStepIndicator();
+        }
+        
+        function validateStep(stepNum) {
+            switch(stepNum) {
+                case 1:
+                    const adminEmail = document.getElementById('admin_email').value;
+                    const companyName = document.getElementById('company_name').value;
+                    
+                    if (!adminEmail || !companyName) {
+                        showAlert('Please fill in all required fields', 'error');
+                        return false;
+                    }
+                    
+                    if (!adminEmail.includes('@')) {
+                        showAlert('Please enter a valid email address', 'error');
+                        return false;
+                    }
+                    return true;
+                    
+                case 2:
+                    const skipEmail = document.getElementById('skip_email').checked;
+                    if (skipEmail) return true;
+                    
+                    const provider = document.getElementById('email_provider').value;
+                    if (provider === 'mailersend') {
+                        const apiKey = document.getElementById('mailersend_api_key').value;
+                        if (!apiKey) {
+                            showAlert('Please enter your MailerSend API key or check "Skip email configuration"', 'error');
+                            return false;
+                        }
+                    } else if (provider === 'brevo') {
+                        const apiKey = document.getElementById('brevo_api_key').value;
+                        if (!apiKey) {
+                            showAlert('Please enter your Brevo API key or check "Skip email configuration"', 'error');
+                            return false;
+                        }
+                    }
+                    return true;
+                    
+                case 3:
+                    if (brands.length === 0) {
+                        showAlert('Please add at least one brand', 'error');
+                        return false;
+                    }
+                    return true;
+                    
+                case 4:
+                    const confirmed = document.getElementById('confirm_setup').checked;
+                    if (!confirmed) {
+                        showAlert('Please confirm your configuration', 'error');
+                        return false;
+                    }
+                    return true;
+            }
+            return true;
+        }
+        
+        function nextStep() {
+            if (!validateStep(currentStep)) {
+                return;
+            }
+            
+            if (currentStep === 3) {
+                // Generate review content
+                generateReview();
+            }
+            
+            if (currentStep < totalSteps) {
+                currentStep++;
+                showStep(currentStep);
+            }
+        }
+        
+        function previousStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                showStep(currentStep);
+            }
+        }
+        
+        function addBrand() {
+            const name = document.getElementById('brand_name').value.toLowerCase().trim();
+            const displayName = document.getElementById('brand_display_name').value.trim();
+            const website = document.getElementById('brand_website').value.trim();
+            const description = document.getElementById('brand_description').value.trim();
+            
+            if (!name || !displayName || !website) {
+                showAlert('Please fill in all required brand fields', 'error');
+                return;
+            }
+            
+            if (!/^[a-z0-9]+$/.test(name)) {
+                showAlert('Brand name must be lowercase letters and numbers only, no spaces', 'error');
+                return;
+            }
+            
+            if (brands.some(b => b.name === name)) {
+                showAlert('A brand with this name already exists', 'error');
+                return;
+            }
+            
+            brands.push({ name, displayName, website, description });
+            
+            // Clear form
+            document.getElementById('brand_name').value = '';
+            document.getElementById('brand_display_name').value = '';
+            document.getElementById('brand_website').value = '';
+            document.getElementById('brand_description').value = '';
+            
+            renderBrands();
+            showAlert(`Brand "${displayName}" added successfully!`);
+        }
+        
+        function removeBrand(index) {
+            const brand = brands[index];
+            if (confirm(`Remove brand "${brand.displayName}"?`)) {
+                brands.splice(index, 1);
+                renderBrands();
+                showAlert(`Brand removed`);
+            }
+        }
+        
+        function renderBrands() {
+            const brandList = document.getElementById('brand-list');
+            const noMsg = document.getElementById('no-brands-msg');
+            
+            if (brands.length === 0) {
+                noMsg.style.display = 'block';
+                return;
+            }
+            
+            noMsg.style.display = 'none';
+            
+            const html = brands.map((brand, index) => `
+                <div class="brand-item">
+                    <div class="brand-item-info">
+                        <div class="brand-item-name">${brand.displayName}</div>
+                        <div class="brand-item-url">${brand.website}</div>
+                    </div>
+                    <button class="btn btn-danger" onclick="removeBrand(${index})">Remove</button>
+                </div>
+            `).join('');
+            
+            brandList.innerHTML = html;
+        }
+        
+        function generateReview() {
+            const adminEmail = document.getElementById('admin_email').value;
+            const companyName = document.getElementById('company_name').value;
+            const timezone = document.getElementById('timezone').options[document.getElementById('timezone').selectedIndex].text;
+            const emailProvider = document.getElementById('email_provider').value;
+            const skipEmail = document.getElementById('skip_email').checked;
+            
+            let html = `
+                <h3 style="margin-bottom: 16px;">System Configuration</h3>
+                <p><strong>Admin Email:</strong> ${adminEmail}</p>
+                <p><strong>Company Name:</strong> ${companyName}</p>
+                <p><strong>Timezone:</strong> ${timezone}</p>
+                <br>
+                <h3 style="margin-bottom: 16px;">Email Configuration</h3>
+                <p><strong>Provider:</strong> ${skipEmail ? 'Not configured (skip)' : emailProvider.toUpperCase()}</p>
+                <br>
+                <h3 style="margin-bottom: 16px;">Brands (${brands.length})</h3>
+            `;
+            
+            brands.forEach(brand => {
+                html += `
+                    <div style="background: white; padding: 12px; border-radius: 6px; margin-bottom: 8px;">
+                        <strong>${brand.displayName}</strong> (${brand.name})<br>
+                        <small>${brand.website}</small>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('review-content').innerHTML = html;
+        }
+        
+        async function finishSetup() {
+            if (!validateStep(4)) {
+                return;
+            }
+            
+            // Show loader
+            document.querySelector('.content').style.display = 'none';
+            document.getElementById('loader').classList.add('active');
+            
+            // Collect all configuration
+            const config = {
+                system: {
+                    admin_email: document.getElementById('admin_email').value,
+                    company_name: document.getElementById('company_name').value,
+                    timezone: document.getElementById('timezone').value
+                },
+                email: {
+                    skip: document.getElementById('skip_email').checked,
+                    provider: document.getElementById('email_provider').value
+                },
+                brands: brands
+            };
+            
+            // Add provider-specific config
+            if (!config.email.skip) {
+                if (config.email.provider === 'mailersend') {
+                    config.email.api_key = document.getElementById('mailersend_api_key').value;
+                } else if (config.email.provider === 'brevo') {
+                    config.email.api_key = document.getElementById('brevo_api_key').value;
+                    config.email.smtp_user = document.getElementById('brevo_smtp_user').value;
+                    config.email.smtp_password = document.getElementById('brevo_smtp_password').value;
+                } else if (config.email.provider === 'smtp') {
+                    config.email.smtp_host = document.getElementById('smtp_host').value;
+                    config.email.smtp_port = document.getElementById('smtp_port').value;
+                    config.email.smtp_username = document.getElementById('smtp_username').value;
+                    config.email.smtp_password = document.getElementById('smtp_password').value;
+                }
+            }
+            
+            try {
+                const response = await fetch('/api/onboarding/complete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Success! Redirect to dashboard
+                    window.location.href = '/';
+                } else {
+                    throw new Error(result.error || 'Setup failed');
+                }
+            } catch (error) {
+                document.querySelector('.content').style.display = 'block';
+                document.getElementById('loader').classList.remove('active');
+                showAlert('Setup failed: ' + error.message, 'error');
+            }
+        }
+        
+        // Initialize
+        showStep(1);
+    </script>
+</body>
+</html>

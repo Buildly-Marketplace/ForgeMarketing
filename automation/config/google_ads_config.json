@@ -1,0 +1,90 @@
+{
+  "developer_token": "",
+  "client_id": "",
+  "client_secret": "",
+  "refresh_token": "",
+  "service_account_path": "",
+  "api_key": "",
+  "customer_ids": {
+    "foundry": "",
+    "buildly": "",
+    "open_build": "",
+    "radical_therapy": ""
+  },
+  "api_version": "v21",
+  "use_proto_plus": true,
+  "campaign_defaults": {
+    "foundry": {
+      "target_locations": ["United States", "Canada", "United Kingdom"],
+      "target_languages": ["English"],
+      "ad_schedule": {
+        "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+        "hours": "09:00-17:00"
+      },
+      "device_targets": ["desktop", "mobile", "tablet"],
+      "audience_targets": ["software developers", "tech decision makers", "CTOs"]
+    },
+    "buildly": {
+      "target_locations": ["United States", "Canada", "United Kingdom", "Australia"],
+      "target_languages": ["English"],
+      "ad_schedule": {
+        "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+        "hours": "08:00-18:00"
+      },
+      "device_targets": ["desktop", "mobile", "tablet"],
+      "audience_targets": ["business analysts", "IT managers", "digital transformation"]
+    },
+    "open_build": {
+      "target_locations": ["Worldwide"],
+      "target_languages": ["English"],
+      "ad_schedule": {
+        "days": ["ALL_WEEK"],
+        "hours": "00:00-23:59"
+      },
+      "device_targets": ["desktop", "mobile"],
+      "audience_targets": ["open source developers", "DevOps engineers", "tech enthusiasts"]
+    },
+    "radical_therapy": {
+      "target_locations": ["United States", "Canada"],
+      "target_languages": ["English"],
+      "ad_schedule": {
+        "days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+        "hours": "09:00-17:00"
+      },
+      "device_targets": ["desktop", "mobile", "tablet"],
+      "audience_targets": ["therapists", "mental health professionals", "clinic managers"]
+    }
+  },
+  "bidding_strategies": {
+    "maximize_conversions": {
+      "target_cpa": true,
+      "enhanced_cpc": false
+    },
+    "maximize_clicks": {
+      "max_cpc_bid": 2.00
+    },
+    "target_impression_share": {
+      "location": "TOP_OF_PAGE",
+      "percentage": 80
+    }
+  },
+  "reporting": {
+    "default_date_range": 30,
+    "metrics": [
+      "impressions",
+      "clicks",
+      "conversions",
+      "cost",
+      "ctr",
+      "conversion_rate",
+      "cost_per_conversion",
+      "average_cpc"
+    ],
+    "segments": [
+      "date",
+      "device",
+      "keyword",
+      "campaign"
+    ]
+  }
+}

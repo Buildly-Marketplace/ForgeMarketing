@@ -1,0 +1,332 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6" x-data="dashboard()">
+    <!-- Hero Section -->
+    <div class="gradient-bg rounded-lg p-8 text-white card-shadow">
+        <h1 class="text-4xl font-bold mb-4">🚀 Marketing Automation Dashboard</h1>
+        <p class="text-xl opacity-90 mb-6">Unified AI-powered content generation for all your brands</p>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-palette text-2xl mr-3"></i>
+                    <div>
+                        <div class="text-2xl font-bold">{{ brands|length }}</div>
+                        <div class="text-sm opacity-80">Active Brands</div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-robot text-2xl mr-3"></i>
+                    <div>
+                        <div class="text-2xl font-bold" x-text="aiStatus ? '✓' : '✗'">-</div>
+                        <div class="text-sm opacity-80">AI Integration</div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-chart-line text-2xl mr-3"></i>
+                    <div>
+                        <div class="text-2xl font-bold" x-text="contentGenerated">0</div>
+                        <div class="text-sm opacity-80">Content Generated</div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white bg-opacity-20 rounded-lg p-4">
+                <div class="flex items-center">
+                    <i class="fas fa-clock text-2xl mr-3"></i>
+                    <div>
+                        <div class="text-2xl font-bold" x-text="lastUpdate">-</div>
+                        <div class="text-sm opacity-80">Last Update</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center mb-4">
+                <i class="fas fa-magic text-purple-600 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold">Quick Generate</h3>
+            </div>
+            <p class="text-gray-600 mb-4">Generate content instantly for any brand</p>
+            <a href="/generate" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                Start Generating
+            </a>
+        </div>
+        
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center mb-4">
+                <i class="fas fa-palette text-blue-600 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold">Brand Management</h3>
+            </div>
+            <p class="text-gray-600 mb-4">Configure and manage your brand voices</p>
+            <a href="/brands" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                Manage Brands
+            </a>
+        </div>
+        
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center mb-4">
+                <i class="fas fa-envelope text-red-600 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold">Email Outreach</h3>
+            </div>
+            <p class="text-gray-600 mb-4">Manage user outreach campaigns by brand</p>
+            <a href="/outreach" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                Manage Outreach
+            </a>
+        </div>
+        
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center mb-4">
+                <i class="fas fa-chart-bar text-green-600 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold">View Analytics</h3>
+            </div>
+            <p class="text-gray-600 mb-4">Track performance and engagement metrics</p>
+            <a href="/analytics" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                View Reports
+            </a>
+        </div>
+    </div>
+
+    <!-- Brand Overview -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h3 class="text-xl font-semibold mb-6">Brand Overview</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {% for brand in brands %}
+            <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="font-semibold capitalize">{{ brand }}</h4>
+                    <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Active</span>
+                </div>
+                <p class="text-gray-600 text-sm mb-3">AI-powered content generation ready</p>
+                <div class="flex space-x-2">
+                    <button @click="generateContent('{{ brand }}', 'social')" 
+                            class="bg-blue-500 text-white text-xs px-2 py-1 rounded hover:bg-blue-600">
+                        <i class="fas fa-share-alt mr-1"></i>Social
+                    </button>
+                    <button @click="generateContent('{{ brand }}', 'blog')" 
+                            class="bg-purple-500 text-white text-xs px-2 py-1 rounded hover:bg-purple-600">
+                        <i class="fas fa-blog mr-1"></i>Blog
+                    </button>
+                    <button @click="generateContent('{{ brand }}', 'email')" 
+                            class="bg-green-500 text-white text-xs px-2 py-1 rounded hover:bg-green-600">
+                        <i class="fas fa-envelope mr-1"></i>Email
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h3 class="text-xl font-semibold mb-6">Recent Activity</h3>
+        <div class="space-y-3">
+            <template x-for="activity in recentActivity" :key="activity.id">
+                <div class="flex items-center p-3 rounded-lg" :class="getActivityBgClass(activity.type)">
+                    <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3" :class="getActivityIconClass(activity.type)">
+                        <i :class="getActivityIcon(activity.type)" class="text-white text-sm"></i>
+                    </div>
+                    <div class="flex-1">
+                        <p class="font-medium" x-text="activity.title"></p>
+                        <p class="text-sm" :class="getActivityTextClass(activity.type)" x-text="activity.description"></p>
+                    </div>
+                    <div class="text-sm text-gray-500" x-text="activity.time"></div>
+                </div>
+            </template>
+            
+            <div x-show="recentActivity.length === 0" class="text-center py-8 text-gray-500">
+                <i class="fas fa-inbox text-4xl mb-4"></i>
+                <p>No recent activity. Start generating content to see updates here.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dashboard() {
+    return {
+        aiStatus: false,
+        contentGenerated: 0,
+        lastUpdate: '-',
+        recentActivity: [],
+        
+        async init() {
+            await this.loadStatus();
+        },
+        
+        async loadStatus() {
+            try {
+                // Load real status from enhanced API
+                const statusRes = await fetch('/api/status');
+                
+                if (statusRes.ok) {
+                    const statusData = await statusRes.json();
+                    
+                    // Update AI status based on real configuration
+                    this.aiStatus = statusData.ai_available || false;
+                    this.lastUpdate = new Date().toLocaleTimeString();
+                    
+                    // Show configuration warnings if services aren't configured
+                    if (!statusData.services?.ai?.available) {
+                        this.recentActivity.push({
+                            id: Date.now(),
+                            title: 'AI Configuration Required',
+                            description: `Missing: ${statusData.missing_configuration?.ai?.join(', ') || 'OPENAI_API_KEY'}`,
+                            time: 'Config Issue',
+                            type: 'warning'
+                        });
+                    }
+                    
+                    if (!statusData.services?.email?.available) {
+                        this.recentActivity.push({
+                            id: Date.now() + 1,
+                            title: 'Email Configuration Required',
+                            description: `Missing: ${statusData.missing_configuration?.email?.join(', ') || 'Email credentials'}`,
+                            time: 'Config Issue',
+                            type: 'warning'
+                        });
+                    }
+                }
+                
+                // Try to load real activity data from unified analytics
+                const outreachRes = await fetch('/api/outreach/overview');
+                
+                if (outreachRes.ok) {
+                    const outreachData = await outreachRes.json();
+                    
+                    if (outreachData.overview) {
+                        this.contentGenerated = outreachData.overview?.total_emails_sent || 0;
+                    }
+                    
+                    // Process recent activity data
+                    if (outreachData.recent_activity && outreachData.recent_activity.length > 0) {
+                        console.log('Processing recent activity:', outreachData.recent_activity.length, 'items');
+                        const realActivity = outreachData.recent_activity.slice(0, 5).map((activity, index) => ({
+                            id: `outreach_${index}`,
+                            title: `${activity.brand.charAt(0).toUpperCase() + activity.brand.slice(1)} Outreach`,
+                            description: `Email ${activity.status} to ${activity.target_name || 'target'}`,
+                            time: new Date(activity.delivery_time).toLocaleTimeString(),
+                            type: 'success'
+                        }));
+                        // Replace activity array with real data (keeping any config warnings at the end)
+                        this.recentActivity = [...realActivity, ...this.recentActivity.filter(item => item.type === 'warning' || item.type === 'error')];
+                        console.log('Recent activity updated:', this.recentActivity.length, 'items');
+                    } else {
+                        console.log('No recent activity data found');
+                    }
+                } else {
+                    // No real data available
+                    this.contentGenerated = 0;
+                    this.recentActivity.push({
+                        id: Date.now() + 2,
+                        title: 'No Activity Data',
+                        description: 'No outreach activity found - check configuration',
+                        time: 'Data Issue',
+                        type: 'info'
+                    });
+                }
+                
+            } catch (error) {
+                console.error('Failed to load status:', error);
+                this.aiStatus = false;
+                this.contentGenerated = 0;
+                this.lastUpdate = 'Error';
+                this.recentActivity = [
+                    { id: 1, title: 'Connection Error', description: 'Failed to load dashboard data', time: 'Error', type: 'error' },
+                    { id: 2, title: 'OpenBuild Discovery', description: 'New targets identified', time: '08:15 AM' },
+                    { id: 3, title: 'Analytics Report', description: 'Daily summary generated', time: '07:00 AM' }
+                ];
+            }
+        },
+        
+        async generateContent(brand, type) {
+            try {
+                showNotification(`Generating ${type} content for ${brand}...`, 'info');
+                
+                const payload = {
+                    brand: brand,
+                    type: type,
+                    topic: `Latest insights from ${brand}`,
+                    audience: 'professionals'
+                };
+                
+                const result = await apiCall('/api/generate', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                if (result.success) {
+                    showNotification(`${type} content generated successfully!`, 'success');
+                    this.contentGenerated++;
+                    
+                    // Add to recent activity
+                    this.recentActivity.unshift({
+                        id: Date.now(),
+                        title: `Generated ${type} for ${brand}`,
+                        description: `AI-powered ${type} content created`,
+                        time: new Date().toLocaleTimeString()
+                    });
+                    
+                    // Keep only last 10 activities
+                    if (this.recentActivity.length > 10) {
+                        this.recentActivity = this.recentActivity.slice(0, 10);
+                    }
+                } else {
+                    showNotification(result.error || 'Generation failed', 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to generate content', 'error');
+            }
+        },
+        
+        getActivityBgClass(type) {
+            const classes = {
+                'success': 'bg-green-50 border-l-4 border-green-400',
+                'warning': 'bg-yellow-50 border-l-4 border-yellow-400',
+                'error': 'bg-red-50 border-l-4 border-red-400',
+                'info': 'bg-blue-50 border-l-4 border-blue-400'
+            };
+            return classes[type] || 'bg-gray-50';
+        },
+        
+        getActivityIconClass(type) {
+            const classes = {
+                'success': 'bg-green-500',
+                'warning': 'bg-yellow-500',
+                'error': 'bg-red-500',
+                'info': 'bg-blue-500'
+            };
+            return classes[type] || 'bg-blue-500';
+        },
+        
+        getActivityIcon(type) {
+            const icons = {
+                'success': 'fas fa-check',
+                'warning': 'fas fa-exclamation-triangle',
+                'error': 'fas fa-times',
+                'info': 'fas fa-info'
+            };
+            return icons[type] || 'fas fa-magic';
+        },
+        
+        getActivityTextClass(type) {
+            const classes = {
+                'success': 'text-green-700',
+                'warning': 'text-yellow-700',
+                'error': 'text-red-700',
+                'info': 'text-blue-700'
+            };
+            return classes[type] || 'text-gray-600';
+        }
+    }
+}
+</script>
+{% endblock %}

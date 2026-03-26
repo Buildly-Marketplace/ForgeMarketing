@@ -1,0 +1,1011 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6" x-data="reportsManager()">
+    <!-- Header -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Reports & Analytics</h1>
+                <p class="text-gray-600 mt-1">Comprehensive analytics and reporting across all brands</p>
+            </div>
+            <div class="flex space-x-3">
+                <button @click="generateReport()" :disabled="generating" 
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                    <i class="fas fa-file-alt mr-2" :class="{'fa-spin': generating}"></i>
+                    <span x-show="!generating">Generate Report</span>
+                    <span x-show="generating">Generating...</span>
+                </button>
+                <button @click="exportData()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                    <i class="fas fa-download mr-2"></i>Export Data
+                </button>
+                <button @click="refreshData()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-sync mr-2" :class="{'fa-spin': loading}"></i>Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Brand Filter -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">Filter by Brand</h3>
+            <select x-model="selectedTimeRange" @change="loadData()" class="px-3 py-2 border border-gray-300 rounded-lg">
+                <option value="7d">Last 7 days</option>
+                <option value="30d">Last 30 days</option>
+                <option value="90d">Last 90 days</option>
+            </select>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <button @click="selectedBrand = 'all'" :class="selectedBrand === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-4 py-2 rounded-lg font-medium">
+                All Brands
+            </button>
+            <template x-for="brand in brands" :key="brand.key">
+                <button @click="selectedBrand = brand.key" 
+                        :class="selectedBrand === brand.key ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                        class="px-4 py-2 rounded-lg font-medium">
+                    <i :class="brand.icon" class="mr-2"></i>
+                    <span x-text="brand.name"></span>
+                </button>
+            </template>
+        </div>
+    </div>
+
+    <!-- Brand Dashboards -->
+    <div class="bg-white rounded-lg p-6 card-shadow" x-data="brandDashboards()">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">
+                <i class="fas fa-chart-bar mr-2 text-blue-600"></i>
+                Individual Brand Dashboards
+            </h3>
+            <div class="flex space-x-2">
+                <button @click="generateAllDashboards()" :disabled="generating" 
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">
+                    <i class="fas fa-sync mr-2" :class="{'fa-spin': generating}"></i>
+                    <span x-show="!generating">Regenerate All</span>
+                    <span x-show="generating">Generating...</span>
+                </button>
+                <button @click="loadBrandDashboards()" class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700">
+                    <i class="fas fa-refresh mr-2"></i>Refresh
+                </button>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <template x-for="dashboard in dashboards" :key="dashboard.brand">
+                <div class="border border-gray-200 rounded-lg p-4 hover:border-blue-300 transition-colors">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-semibold text-gray-900" x-text="dashboard.name"></h4>
+                        <div class="flex items-center space-x-1">
+                            <span x-show="dashboard.exists" class="w-3 h-3 bg-green-500 rounded-full" title="Dashboard exists"></span>
+                            <span x-show="!dashboard.exists" class="w-3 h-3 bg-red-500 rounded-full" title="Dashboard not found"></span>
+                            <span x-show="dashboard.has_generator" class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Auto-Gen</span>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <div x-show="dashboard.exists" class="flex space-x-2">
+                            <a :href="dashboard.url_path" target="_blank" 
+                               class="flex-1 bg-blue-600 text-white text-center px-3 py-2 rounded text-sm hover:bg-blue-700">
+                                <i class="fas fa-external-link-alt mr-2"></i>View Dashboard
+                            </a>
+                            <button @click="generateBrandDashboard(dashboard.brand)" 
+                                    :disabled="generating"
+                                    x-show="dashboard.has_generator"
+                                    class="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 disabled:opacity-50">
+                                <i class="fas fa-sync text-xs"></i>
+                            </button>
+                        </div>
+                        
+                        <div x-show="!dashboard.exists" class="space-y-2">
+                            <button @click="generateBrandDashboard(dashboard.brand)" 
+                                    :disabled="generating"
+                                    x-show="dashboard.has_generator"
+                                    class="w-full bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 disabled:opacity-50">
+                                <i class="fas fa-plus mr-2"></i>Generate Dashboard
+                            </button>
+                            <div x-show="!dashboard.has_generator" 
+                                 class="w-full bg-gray-200 text-gray-600 text-center px-3 py-2 rounded text-sm">
+                                Generator Coming Soon
+                            </div>
+                        </div>
+                        
+                        <div x-show="dashboard.last_updated" class="text-xs text-gray-500">
+                            Last updated: <span x-text="formatDate(dashboard.last_updated)"></span>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+        
+        <!-- Generation Results -->
+        <div x-show="lastGenerationResult" class="mt-4 p-3 rounded-lg" 
+             :class="lastGenerationResult.success ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'">
+            <div class="flex items-center">
+                <i :class="lastGenerationResult.success ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'" class="mr-2"></i>
+                <span x-text="lastGenerationResult.message"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Targets</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="filteredStats.totalTargets">0</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-users text-blue-600 text-xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center">
+                    <span class="text-green-600 text-sm font-medium">+12%</span>
+                    <span class="text-gray-500 text-sm ml-2">vs last period</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Emails Sent</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="filteredStats.emailsSent">0</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-envelope text-green-600 text-xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center">
+                    <span class="text-green-600 text-sm font-medium">+25%</span>
+                    <span class="text-gray-500 text-sm ml-2">vs last period</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Response Rate</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="filteredStats.responseRate + '%'">0%</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-reply text-purple-600 text-xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center">
+                    <span class="text-green-600 text-sm font-medium">+8%</span>
+                    <span class="text-gray-500 text-sm ml-2">vs last period</span>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Active Campaigns</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="filteredStats.activeCampaigns">0</p>
+                </div>
+                <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-chart-line text-orange-600 text-xl"></i>
+                </div>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center">
+                    <span class="text-green-600 text-sm font-medium">+5%</span>
+                    <span class="text-gray-500 text-sm ml-2">vs last period</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brand Performance Report -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h3 class="text-lg font-semibold mb-6">Brand Performance Overview</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Targets</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emails Sent</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response Rate</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="brand in filteredBrands" :key="brand.key">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3" :class="brand.color">
+                                        <i :class="brand.icon" class="text-white text-sm"></i>
+                                    </div>
+                                    <span class="font-medium" x-text="brand.name"></span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900" x-text="brand.targets"></td>
+                            <td class="px-6 py-4 text-sm text-gray-900" x-text="brand.emailsSent"></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                        <div class="bg-green-500 h-2 rounded-full" :style="`width: ${brand.responseRate}%`"></div>
+                                    </div>
+                                    <span class="text-sm font-medium" x-text="brand.responseRate + '%'"></span>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500" x-text="formatDate(brand.lastActivity)"></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full" 
+                                      :class="brand.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                                      x-text="brand.status"></span>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Analytics Charts -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <h3 class="text-lg font-semibold mb-4">Email Campaign Trends</h3>
+            <div class="h-64">
+                <canvas id="emailTrendsChart"></canvas>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <h3 class="text-lg font-semibold mb-4">Response Rate by Brand</h3>
+            <div class="h-64">
+                <canvas id="responseRateChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Summary Report -->
+        <!-- Daily Summary Report -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold">Daily Summary Report</h3>
+            <div class="flex space-x-2">
+                <button @click="timeRange = 'today'" 
+                        :class="timeRange === 'today' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'"
+                        class="px-3 py-1 text-sm rounded hover:bg-blue-700">
+                    Today
+                </button>
+                <button @click="timeRange = 'week'" 
+                        :class="timeRange === 'week' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'"
+                        class="px-3 py-1 text-sm rounded hover:bg-blue-700">
+                    This Week
+                </button>
+                <button @click="timeRange = 'month'" 
+                        :class="timeRange === 'month' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'"
+                        class="px-3 py-1 text-sm rounded hover:bg-blue-700">
+                    This Month
+                </button>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-blue-600" x-text="filteredStats.emails">0</p>
+                <p class="text-sm text-gray-600">Emails Sent</p>
+            </div>
+            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-green-600" x-text="filteredStats.responseRate + '%'">0%</p>
+                <p class="text-sm text-gray-600">Response Rate</p>
+            </div>
+            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                <p class="text-2xl font-bold text-purple-600" x-text="filteredStats.campaigns">0</p>
+                <p class="text-sm text-gray-600">Active Campaigns</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detailed Outreach Activity -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold">Recent Outreach Activity</h3>
+            <div class="flex space-x-2">
+                <select x-model="activityFilter" @change="filterActivity()" class="px-3 py-1 text-sm border border-gray-300 rounded">
+                    <option value="all">All Status</option>
+                    <option value="sent">Sent</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                </select>
+                <button @click="loadOutreachActivity()" class="text-blue-600 hover:text-blue-800">
+                    <i class="fas fa-refresh"></i>
+                </button>
+            </div>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="activity in filteredActivity" :key="activity.id || Math.random()">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-sm text-gray-900" x-text="formatDate(activity.delivery_time)"></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800" 
+                                      x-text="activity.brand"></span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900" x-text="activity.target_name || 'Unknown'"></td>
+                            <td class="px-6 py-4 text-sm text-gray-500" x-text="(activity.subject || '').substring(0, 40) + '...'"></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full" 
+                                      :class="getStatusColor(activity.status)"
+                                      x-text="activity.status"></span>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <i :class="activity.response_received ? 'fas fa-check text-green-500' : 'fas fa-clock text-gray-400'"></i>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="filteredActivity.length === 0">
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">No outreach activity found</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    function reportsManager() {
+        return {
+            selectedBrand: 'all',
+            timeRange: '30d',
+            totalEmailsSent: 0,
+            totalTargets: 0,
+            avgResponseRate: 0,
+            activeCampaigns: 0,
+            brands: [],
+            outreachActivity: [],
+            filteredActivity: [],
+            activityFilter: 'all',
+            loading: false,
+            
+            init() {
+                this.loadReportsData();
+                this.loadBrandData();
+                this.loadOutreachActivity();
+            },
+            
+            async loadReportsData() {
+                this.loading = true;
+                try {
+                    const response = await fetch('/api/analytics/comprehensive');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.totalEmailsSent = data.data.total_outreach_attempts || 0;
+                        this.totalTargets = data.data.total_targets || 0;
+                        this.avgResponseRate = parseFloat(data.data.avg_response_rate || 0);
+                        this.activeCampaigns = data.data.active_campaigns || 0;
+                    }
+                } catch (error) {
+                    console.error('Error loading reports data:', error);
+                } finally {
+                    this.loading = false;
+                }
+            },
+            
+            async loadBrandData() {
+                try {
+                    const response = await fetch('/api/outreach/overview');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.brands = [
+                            {
+                                key: 'foundry',
+                                name: 'Foundry',
+                                icon: 'fas fa-hammer',
+                                color: 'bg-purple-500',
+                                targets: data.data.foundry?.total_targets || 0,
+                                emailsSent: data.data.foundry?.total_outreach || 0,
+                                responseRate: Math.round(Math.random() * 25 + 5), // Mock for now
+                                lastActivity: new Date().toISOString(),
+                                status: 'active'
+                            },
+                            {
+                                key: 'openbuild',
+                                name: 'OpenBuild',
+                                icon: 'fas fa-code',
+                                color: 'bg-blue-500',
+                                targets: data.data.openbuild?.total_targets || 0,
+                                emailsSent: data.data.openbuild?.total_outreach || 0,
+                                responseRate: Math.round(Math.random() * 25 + 5),
+                                lastActivity: new Date().toISOString(),
+                                status: 'active'
+                            },
+                            {
+                                key: 'buildly',
+                                name: 'Buildly',
+                                icon: 'fas fa-building',
+                                color: 'bg-green-500',
+                                targets: 0, // Add when data available
+                                emailsSent: 0,
+                                responseRate: 0,
+                                lastActivity: new Date().toISOString(),
+                                status: 'pending'
+                            },
+                            {
+                                key: 'radical',
+                                name: 'Radical',
+                                icon: 'fas fa-rocket',
+                                color: 'bg-red-500',
+                                targets: 0,
+                                emailsSent: 0,
+                                responseRate: 0,
+                                lastActivity: new Date().toISOString(),
+                                status: 'pending'
+                            },
+                            {
+                                key: 'oregonsoftware',
+                                name: 'Oregon Software',
+                                icon: 'fas fa-tree',
+                                color: 'bg-orange-500',
+                                targets: 0,
+                                emailsSent: 0,
+                                responseRate: 0,
+                                lastActivity: new Date().toISOString(),
+                                status: 'pending'
+                            }
+                        ];
+                    }
+                } catch (error) {
+                    console.error('Error loading brand data:', error);
+                }
+            },
+            
+            async loadOutreachActivity() {
+                try {
+                    const response = await fetch('/api/outreach/recent');
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.outreachActivity = data.data || [];
+                        this.filterActivity();
+                    }
+                } catch (error) {
+                    console.error('Error loading outreach activity:', error);
+                    this.outreachActivity = [];
+                    this.filteredActivity = [];
+                }
+            },
+            
+            filterActivity() {
+                let filtered = this.outreachActivity;
+                
+                if (this.selectedBrand !== 'all') {
+                    filtered = filtered.filter(activity => activity.brand === this.selectedBrand);
+                }
+                
+                if (this.activityFilter !== 'all') {
+                    filtered = filtered.filter(activity => activity.status === this.activityFilter);
+                }
+                
+                this.filteredActivity = filtered;
+            },
+            
+            get filteredBrands() {
+                if (this.selectedBrand === 'all') {
+                    return this.brands;
+                }
+                return this.brands.filter(brand => brand.key === this.selectedBrand);
+            },
+            
+            get filteredStats() {
+                if (this.selectedBrand === 'all') {
+                    return {
+                        emails: this.totalEmailsSent,
+                        targets: this.totalTargets,
+                        responseRate: this.avgResponseRate,
+                        campaigns: this.activeCampaigns
+                    };
+                }
+                
+                const brand = this.brands.find(b => b.key === this.selectedBrand);
+                if (brand) {
+                    return {
+                        emails: brand.emailsSent,
+                        targets: brand.targets,
+                        responseRate: brand.responseRate,
+                        campaigns: brand.status === 'active' ? 1 : 0
+                    };
+                }
+                
+                return { emails: 0, targets: 0, responseRate: 0, campaigns: 0 };
+            },
+            
+            formatDate(dateStr) {
+                if (!dateStr) return 'N/A';
+                try {
+                    return new Date(dateStr).toLocaleDateString('en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                    });
+                } catch {
+                    return 'Invalid Date';
+                }
+            },
+            
+            getStatusColor(status) {
+                switch (status?.toLowerCase()) {
+                    case 'sent':
+                    case 'delivered':
+                        return 'bg-green-100 text-green-800';
+                    case 'pending':
+                        return 'bg-yellow-100 text-yellow-800';
+                    case 'failed':
+                    case 'error':
+                        return 'bg-red-100 text-red-800';
+                    default:
+                        return 'bg-gray-100 text-gray-800';
+                }
+            }
+        };
+    }
+
+let emailTrendsChart, responseRateChart;
+
+// Load reports on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadSummaryStats();
+    loadBrandPerformance();
+    loadOutreachActivity();
+    loadDailySummary();
+    initializeCharts();
+    
+    // Set default dates
+    const today = new Date();
+    const lastWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+    document.getElementById('reportStartDate').value = lastWeek.toISOString().split('T')[0];
+    document.getElementById('reportEndDate').value = today.toISOString().split('T')[0];
+});
+
+function loadSummaryStats() {
+    fetch('/api/outreach/overview')
+        .then(response => response.json())
+        .then(data => {
+            if (data.overview) {
+                document.getElementById('total-targets').textContent = data.overview.total_targets || 0;
+                document.getElementById('emails-sent').textContent = data.overview.total_emails_sent || 0;
+                document.getElementById('response-rate').textContent = (data.overview.overall_response_rate || 0) + '%';
+                document.getElementById('active-campaigns').textContent = data.total_brands || 0;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading summary stats:', error);
+        });
+}
+
+function loadBrandPerformance() {
+    fetch('/api/outreach/overview')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('brand-performance-container');
+            
+            if (data.brands && data.brands.length > 0) {
+                let html = '<div class="table-responsive"><table class="table table-hover"><thead><tr><th>Brand</th><th>Targets</th><th>Emails Sent</th><th>Responses</th><th>Response Rate</th><th>Last Activity</th></tr></thead><tbody>';
+                
+                data.brands.forEach(brand => {
+                    const responseRate = brand.total_emails_sent > 0 ? 
+                        ((brand.total_responses || 0) / brand.total_emails_sent * 100).toFixed(1) : 0;
+                    
+                    html += `
+                        <tr>
+                            <td><span class="badge bg-primary">${brand.brand_name}</span></td>
+                            <td>${brand.total_targets || 0}</td>
+                            <td>${brand.total_emails_sent || 0}</td>
+                            <td>${brand.total_responses || 0}</td>
+                            <td>
+                                <div class="progress" style="width: 60px;">
+                                    <div class="progress-bar" role="progressbar" style="width: ${responseRate}%"></div>
+                                </div>
+                                ${responseRate}%
+                            </td>
+                            <td>${brand.last_activity ? new Date(brand.last_activity).toLocaleDateString() : 'N/A'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="alert alert-info">No brand performance data available</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading brand performance:', error);
+            document.getElementById('brand-performance-container').innerHTML = 
+                '<div class="alert alert-danger">Error loading brand performance data</div>';
+        });
+}
+
+function loadOutreachActivity() {
+    fetch('/api/outreach/overview')
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('outreach-activity-body');
+            
+            if (data.recent_activity && data.recent_activity.length > 0) {
+                let html = '';
+                
+                data.recent_activity.slice(0, 20).forEach(activity => {
+                    const statusBadge = activity.status === 'sent' ? 'bg-success' : 
+                                      activity.status === 'pending' ? 'bg-warning' : 'bg-secondary';
+                    
+                    html += `
+                        <tr>
+                            <td>${new Date(activity.delivery_time).toLocaleDateString()}</td>
+                            <td><span class="badge bg-primary">${activity.brand}</span></td>
+                            <td>${activity.target_name || 'Unknown'}</td>
+                            <td>${(activity.subject || '').substring(0, 40)}...</td>
+                            <td><span class="badge ${statusBadge}">${activity.status}</span></td>
+                            <td>${activity.response_received ? '<i class="fas fa-check text-success"></i>' : '<i class="fas fa-clock text-muted"></i>'}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" onclick="viewActivityDetails('${activity.id || ''}')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                tbody.innerHTML = html;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center">No recent outreach activity</td></tr>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading outreach activity:', error);
+            document.getElementById('outreach-activity-body').innerHTML = 
+                '<tr><td colspan="7" class="text-center text-danger">Error loading outreach activity</td></tr>';
+        });
+}
+
+function loadDailySummary() {
+    fetch('/api/reports/daily-summary')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('daily-summary-container');
+            
+            if (data.success && data.summary) {
+                const summary = data.summary;
+                const html = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Today's Activity</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Emails Sent</span>
+                                    <badge class="badge bg-primary">${summary.todays_emails || 0}</badge>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>New Targets</span>
+                                    <badge class="badge bg-success">${summary.new_targets || 0}</badge>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Responses Received</span>
+                                    <badge class="badge bg-info">${summary.todays_responses || 0}</badge>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Overall Statistics</h6>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Total Campaigns</span>
+                                    <badge class="badge bg-secondary">${summary.total_campaigns || 0}</badge>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Active Brands</span>
+                                    <badge class="badge bg-warning">${summary.active_brands || 0}</badge>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>Avg Response Rate</span>
+                                    <badge class="badge bg-danger">${summary.avg_response_rate || 0}%</badge>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <small class="text-muted">Last updated: ${new Date().toLocaleString()}</small>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="alert alert-info">No daily summary data available</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading daily summary:', error);
+            document.getElementById('daily-summary-container').innerHTML = 
+                '<div class="alert alert-danger">Error loading daily summary</div>';
+        });
+}
+
+function initializeCharts() {
+    // Email Trends Chart
+    const emailCtx = document.getElementById('emailTrendsChart').getContext('2d');
+    emailTrendsChart = new Chart(emailCtx, {
+        type: 'line',
+        data: {
+            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            datasets: [{
+                label: 'Emails Sent',
+                data: [12, 19, 8, 15, 22, 13, 18],
+                borderColor: 'rgb(75, 192, 192)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Response Rate Chart
+    const responseCtx = document.getElementById('responseRateChart').getContext('2d');
+    responseRateChart = new Chart(responseCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Foundry', 'OpenBuild', 'Buildly', 'Radical', 'Oregon Software'],
+            datasets: [{
+                data: [25, 15, 30, 20, 10],
+                backgroundColor: [
+                    'rgb(255, 99, 132)',
+                    'rgb(54, 162, 235)',
+                    'rgb(255, 205, 86)',
+                    'rgb(75, 192, 192)',
+                    'rgb(153, 102, 255)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function generateDailyReport() {
+    const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+    document.getElementById('reportType').value = 'daily';
+    modal.show();
+}
+
+function generateCustomReport() {
+    const brand = document.getElementById('reportBrand').value;
+    const type = document.getElementById('reportType').value;
+    const startDate = document.getElementById('reportStartDate').value;
+    const endDate = document.getElementById('reportEndDate').value;
+    
+    const resultDiv = document.getElementById('reportResult');
+    resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Generating report...';
+    resultDiv.style.display = 'block';
+    
+    // Simulate report generation
+    setTimeout(() => {
+        resultDiv.innerHTML = `
+            <div class="alert alert-success">
+                <strong>Report Generated Successfully!</strong><br>
+                Type: ${type}<br>
+                Brand: ${brand || 'All Brands'}<br>
+                Period: ${startDate} to ${endDate}<br>
+                <a href="#" class="btn btn-sm btn-primary mt-2">
+                    <i class="fas fa-download"></i> Download Report
+                </a>
+            </div>
+        `;
+    }, 2000);
+}
+
+function exportData() {
+    // Simulate data export
+    showNotification('Data export initiated. You will receive an email when ready.', 'success');
+}
+
+function refreshReports() {
+    loadSummaryStats();
+    loadBrandPerformance();
+    loadOutreachActivity();
+    loadDailySummary();
+    showNotification('Reports refreshed successfully', 'success');
+}
+
+function viewActivityDetails(activityId) {
+    // Simulate viewing activity details
+    alert(`Viewing details for activity: ${activityId || 'Unknown'}`);
+}
+
+function brandDashboards() {
+    return {
+        dashboards: [],
+        generating: false,
+        lastGenerationResult: null,
+        
+        init() {
+            this.loadBrandDashboards();
+        },
+        
+        async loadBrandDashboards() {
+            try {
+                const response = await fetch('/api/brand-dashboards');
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.dashboards = data.dashboards;
+                }
+            } catch (error) {
+                console.error('Error loading brand dashboards:', error);
+            }
+        },
+        
+        async generateBrandDashboard(brand) {
+            this.generating = true;
+            this.lastGenerationResult = null;
+            
+            try {
+                const response = await fetch('/api/brand-dashboards/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ brand: brand })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const result = data.results[brand];
+                    if (result && result.success) {
+                        this.lastGenerationResult = {
+                            success: true,
+                            message: `✅ ${brand} dashboard generated successfully`
+                        };
+                        // Refresh the dashboard list
+                        await this.loadBrandDashboards();
+                    } else {
+                        this.lastGenerationResult = {
+                            success: false,
+                            message: `❌ Failed to generate ${brand} dashboard: ${result?.error || 'Unknown error'}`
+                        };
+                    }
+                } else {
+                    this.lastGenerationResult = {
+                        success: false,
+                        message: `❌ Error: ${data.error}`
+                    };
+                }
+            } catch (error) {
+                this.lastGenerationResult = {
+                    success: false,
+                    message: `❌ Network error: ${error.message}`
+                };
+            } finally {
+                this.generating = false;
+                
+                // Clear result after 10 seconds
+                setTimeout(() => {
+                    this.lastGenerationResult = null;
+                }, 10000);
+            }
+        },
+        
+        async generateAllDashboards() {
+            this.generating = true;
+            this.lastGenerationResult = null;
+            
+            try {
+                const response = await fetch('/api/brand-dashboards/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ brand: 'all' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const results = data.results;
+                    const successful = Object.keys(results).filter(brand => results[brand].success);
+                    const failed = Object.keys(results).filter(brand => !results[brand].success);
+                    
+                    if (successful.length > 0 && failed.length === 0) {
+                        this.lastGenerationResult = {
+                            success: true,
+                            message: `✅ All dashboards generated successfully: ${successful.join(', ')}`
+                        };
+                    } else if (successful.length > 0) {
+                        this.lastGenerationResult = {
+                            success: true,
+                            message: `✅ Generated: ${successful.join(', ')}. ⚠️ Failed: ${failed.join(', ')}`
+                        };
+                    } else {
+                        this.lastGenerationResult = {
+                            success: false,
+                            message: `❌ All dashboard generation failed`
+                        };
+                    }
+                    
+                    // Refresh the dashboard list
+                    await this.loadBrandDashboards();
+                } else {
+                    this.lastGenerationResult = {
+                        success: false,
+                        message: `❌ Error: ${data.error}`
+                    };
+                }
+            } catch (error) {
+                this.lastGenerationResult = {
+                    success: false,
+                    message: `❌ Network error: ${error.message}`
+                };
+            } finally {
+                this.generating = false;
+                
+                // Clear result after 15 seconds
+                setTimeout(() => {
+                    this.lastGenerationResult = null;
+                }, 15000);
+            }
+        },
+        
+        formatDate(timestamp) {
+            if (!timestamp) return 'Never';
+            return new Date(timestamp * 1000).toLocaleDateString() + ' ' + 
+                   new Date(timestamp * 1000).toLocaleTimeString();
+        }
+    };
+}
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

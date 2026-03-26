@@ -1,0 +1,606 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .contact-card {
+        transition: all 0.2s ease;
+        border-left: 4px solid transparent;
+    }
+    .contact-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .contact-card.email { border-left-color: #3b82f6; }
+    .contact-card.social { border-left-color: #8b5cf6; }
+    .contact-card.influencer { border-left-color: #f59e0b; }
+</style>
+
+<div class="space-y-6">
+    <!-- Header -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">CRM Contacts</h1>
+                <p class="text-gray-600 mt-1">Manage and view your contact database</p>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="showAddContactModal()" 
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700">
+                    <i class="fas fa-user-plus mr-2"></i>Add Contact
+                </button>
+                <button onclick="importExistingData()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-download mr-2"></i>Import Data
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h3 class="text-lg font-semibold mb-4">Contact Statistics</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="text-center">
+                <div class="text-3xl font-bold text-blue-600" id="totalContacts">0</div>
+                <div class="text-sm text-gray-600">Total Contacts</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-green-600" id="totalTouches">0</div>
+                <div class="text-sm text-gray-600">Total Touches</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-purple-600" id="totalResponses">0</div>
+                <div class="text-sm text-gray-600">Responses</div>
+            </div>
+            <div class="text-center">
+                <div class="text-3xl font-bold text-orange-600" id="responseRate">0%</div>
+                <div class="text-sm text-gray-600">Response Rate</div>
+            </div>
+        </div>
+        
+        <!-- Type Breakdown -->
+        <div class="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <div class="text-2xl font-bold text-blue-600" id="emailContacts">0</div>
+                <div class="text-sm text-blue-800">Email Contacts</div>
+            </div>
+            <div class="text-center p-4 bg-purple-50 rounded-lg">
+                <div class="text-2xl font-bold text-purple-600" id="socialContacts">0</div>
+                <div class="text-sm text-purple-800">Social Contacts</div>
+            </div>
+            <div class="text-center p-4 bg-orange-50 rounded-lg">
+                <div class="text-2xl font-bold text-orange-600" id="influencerContacts">0</div>
+                <div class="text-sm text-orange-800">Influencers</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h3 class="text-lg font-semibold mb-4">Filters</h3>
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Brand</label>
+                <select id="brandFilter" onchange="loadContacts()" class="w-full border rounded-lg px-3 py-2">
+                    <option value="">All Brands</option>
+                    <option value="foundry">Foundry</option>
+                    <option value="buildly">Buildly</option>
+                    <option value="open_build">Open Build</option>
+                    <option value="radical_therapy">Radical Therapy</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select id="typeFilter" onchange="loadContacts()" class="w-full border rounded-lg px-3 py-2">
+                    <option value="">All Types</option>
+                    <option value="email">Email</option>
+                    <option value="social">Social</option>
+                    <option value="influencer">Influencer</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select id="statusFilter" onchange="loadContacts()" class="w-full border rounded-lg px-3 py-2">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="bounced">Bounced</option>
+                    <option value="unsubscribed">Unsubscribed</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input type="text" id="searchFilter" oninput="debounceLoadContacts()" 
+                       placeholder="Name, email, company..." 
+                       class="w-full border rounded-lg px-3 py-2">
+            </div>
+            <div class="flex items-end">
+                <button onclick="clearFilters()" class="w-full bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600">
+                    Clear Filters
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contacts Table -->
+    <div class="bg-white rounded-lg card-shadow">
+        <div class="p-6 border-b">
+            <h3 class="text-lg font-semibold">Contacts</h3>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Brand</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Social Links</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="contactsTableBody">
+                    <tr>
+                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                            <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                            <p>Loading contacts...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Contact Detail Modal -->
+<div id="contactModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style="display: none;">
+    <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between pb-3 border-b">
+            <h3 class="text-lg font-semibold">Contact Details</h3>
+            <button onclick="closeContactModal()" class="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="mt-4" id="contactModalContent">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+        
+        <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+            <button onclick="editSelectedContact()" class="bg-blue-600 text-white px-4 py-2 rounded">
+                Edit Contact
+            </button>
+            <button onclick="closeContactModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Contact Modal -->
+<div id="addContactModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style="display: none;">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="flex items-center justify-between pb-3 border-b">
+            <h3 class="text-lg font-semibold">Add New Contact</h3>
+            <button onclick="closeAddContactModal()" class="text-gray-400 hover:text-gray-600 p-2">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="mt-4">
+            <p class="text-gray-600 mb-4">Add Contact functionality coming soon!</p>
+            <p class="text-sm text-gray-500">This will allow you to create new contacts with social media profiles, company information, and contact details.</p>
+        </div>
+        
+        <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+            <button onclick="closeAddContactModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global variables
+let selectedContact = null;
+let loadTimeout;
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ CRM Contacts loaded with vanilla JavaScript');
+    loadStats();
+    loadContacts();
+});
+
+// Modal Functions
+function showContactModal() {
+    document.getElementById('contactModal').style.display = 'block';
+}
+
+function closeContactModal() {
+    document.getElementById('contactModal').style.display = 'none';
+    selectedContact = null;
+}
+
+function showAddContactModal() {
+    document.getElementById('addContactModal').style.display = 'block';
+}
+
+function closeAddContactModal() {
+    document.getElementById('addContactModal').style.display = 'none';
+}
+
+function populateContactModal() {
+    if (!selectedContact) return;
+    
+    const content = document.getElementById('contactModalContent');
+    content.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Contact Info -->
+            <div>
+                <h4 class="font-semibold mb-3">Contact Information</h4>
+                <div class="space-y-2 text-sm">
+                    <div><strong>Name:</strong> ${selectedContact.name || 'N/A'}</div>
+                    <div><strong>Email:</strong> ${selectedContact.email || 'N/A'}</div>
+                    <div><strong>Company:</strong> ${selectedContact.company || 'N/A'}</div>
+                    <div><strong>Title:</strong> ${selectedContact.title || 'N/A'}</div>
+                    <div><strong>Brand:</strong> <span class="capitalize">${selectedContact.brand || 'N/A'}</span></div>
+                    <div><strong>Type:</strong> <span class="capitalize">${selectedContact.contact_type || 'N/A'}</span></div>
+                    <div><strong>Status:</strong> <span class="capitalize">${selectedContact.status || 'N/A'}</span></div>
+                </div>
+                
+                ${selectedContact.contact_type === 'influencer' ? generateSocialLinksHTML() : ''}
+            </div>
+            
+            <!-- Touch History -->
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="font-semibold">Touch History</h4>
+                    <button onclick="addTouch()" class="text-sm bg-blue-600 text-white px-3 py-1 rounded">
+                        <i class="fas fa-plus mr-1"></i>Add Touch
+                    </button>
+                </div>
+                
+                <div class="max-h-64 overflow-y-auto">
+                    <div class="text-gray-500 text-sm">No touch history available</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function generateSocialLinksHTML() {
+    const socialLinks = extractSocialLinks(selectedContact.notes || '');
+    
+    let html = `
+        <div class="mt-4">
+            <h5 class="font-medium mb-2">Social Profiles</h5>
+            <div class="space-y-2">
+    `;
+    
+    if (socialLinks.length > 0) {
+        socialLinks.forEach(link => {
+            html += `
+                <div class="flex items-center space-x-2">
+                    <a href="${link.url}" target="_blank" 
+                       class="flex items-center space-x-2 text-sm bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition-colors">
+                        <i class="${getPlatformIcon(link.platform)} text-lg"></i>
+                        <span class="font-medium capitalize">${link.platform}</span>
+                        <i class="fas fa-external-link-alt text-xs text-gray-500"></i>
+                    </a>
+                </div>
+            `;
+        });
+    } else {
+        html += '<div class="text-gray-500 text-sm">No social media profiles available</div>';
+    }
+    
+    html += `</div>`;
+    
+    // Add contact methods for influencers
+    if (selectedContact.email || selectedContact.followers_count || selectedContact.engagement_rate) {
+        html += `
+            <div class="mt-4">
+                <h5 class="font-medium mb-2">Contact Methods</h5>
+                <div class="space-y-2 text-sm">
+        `;
+        
+        if (selectedContact.email) {
+            html += `
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-envelope text-gray-500"></i>
+                    <a href="mailto:${selectedContact.email}" class="text-blue-600 hover:underline">${selectedContact.email}</a>
+                </div>
+            `;
+        }
+        
+        if (selectedContact.followers_count) {
+            html += `
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-users text-gray-500"></i>
+                    <span>${formatNumber(selectedContact.followers_count)} followers on ${selectedContact.platform || 'social media'}</span>
+                </div>
+            `;
+        }
+        
+        if (selectedContact.engagement_rate) {
+            html += `
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-heart text-gray-500"></i>
+                    <span>${selectedContact.engagement_rate}% engagement rate</span>
+                </div>
+            `;
+        }
+        
+        html += '</div></div>';
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+// Utility Functions
+function extractSocialLinks(notes) {
+    if (!notes || typeof notes !== 'string') return [];
+    
+    const socialMediaIndex = notes.indexOf('Social Media:');
+    if (socialMediaIndex === -1) return [];
+    
+    const socialSection = notes.substring(socialMediaIndex + 'Social Media:'.length).trim();
+    const links = [];
+    
+    let parts = socialSection.split('|');
+    if (parts.length === 1) {
+        parts = socialSection.split(',');
+    }
+    
+    for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed.includes(':')) {
+            const match = trimmed.match(/^([^:]+):\s*(https?:\/\/.+)$/);
+            if (match) {
+                const platform = match[1].trim();
+                const url = match[2].trim();
+                
+                if (platform && url) {
+                    links.push({
+                        platform: platform.toLowerCase(),
+                        url: url
+                    });
+                }
+            }
+        }
+    }
+    
+    return links;
+}
+
+function getPlatformIcon(platform) {
+    const icons = {
+        'youtube': 'fab fa-youtube text-red-600',
+        'instagram': 'fab fa-instagram text-pink-600',
+        'linkedin': 'fab fa-linkedin text-blue-600',
+        'twitter': 'fab fa-twitter text-sky-500',
+        'bluesky': 'fas fa-cloud text-blue-400',
+        'mastodon': 'fab fa-mastodon text-purple-600',
+        'facebook': 'fab fa-facebook text-blue-700',
+        'tiktok': 'fab fa-tiktok text-black',
+        'github': 'fab fa-github text-gray-800'
+    };
+    return icons[platform?.toLowerCase()] || 'fas fa-link text-gray-500';
+}
+
+function formatNumber(num) {
+    if (!num) return '0';
+    const number = typeof num === 'string' ? parseInt(num) : num;
+    if (number >= 1000000) {
+        return (number / 1000000).toFixed(1) + 'M';
+    } else if (number >= 1000) {
+        return (number / 1000).toFixed(1) + 'K';
+    }
+    return number.toString();
+}
+
+// Contact Actions
+function editSelectedContact() {
+    if (selectedContact) {
+        alert(`Edit functionality for ${selectedContact.name} coming soon!`);
+    }
+}
+
+function addTouch() {
+    if (selectedContact) {
+        alert(`Add touch functionality for ${selectedContact.name} coming soon!`);
+    }
+}
+
+function importExistingData() {
+    alert('Import functionality coming soon!');
+}
+
+// Filter Functions
+function debounceLoadContacts() {
+    clearTimeout(loadTimeout);
+    loadTimeout = setTimeout(loadContacts, 300);
+}
+
+function clearFilters() {
+    document.getElementById('brandFilter').value = '';
+    document.getElementById('typeFilter').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('searchFilter').value = '';
+    loadContacts();
+}
+
+// API Functions
+async function loadStats() {
+    try {
+        const response = await fetch('/api/contacts/stats');
+        if (response.ok) {
+            const stats = await response.json();
+            console.log('📊 Stats loaded:', stats);
+            
+            // Update stats in UI
+            document.getElementById('totalContacts').textContent = stats.total_contacts || 0;
+            document.getElementById('totalTouches').textContent = stats.total_touches || 0;
+            document.getElementById('totalResponses').textContent = stats.total_responses || 0;
+            document.getElementById('responseRate').textContent = Math.round(stats.response_rate || 0) + '%';
+            
+            // Update type breakdown
+            document.getElementById('emailContacts').textContent = stats.by_type?.email || 0;
+            document.getElementById('socialContacts').textContent = stats.by_type?.social || 0;
+            document.getElementById('influencerContacts').textContent = stats.by_type?.influencer || 0;
+        } else {
+            console.error('❌ Stats API returned:', response.status, response.statusText);
+        }
+    } catch (error) {
+        console.error('❌ Error loading stats:', error);
+    }
+}
+
+async function loadContacts() {
+    try {
+        const params = new URLSearchParams();
+        
+        // Get filter values
+        const brand = document.getElementById('brandFilter').value;
+        const type = document.getElementById('typeFilter').value;
+        const status = document.getElementById('statusFilter').value;
+        const search = document.getElementById('searchFilter').value;
+        
+        if (brand) params.append('brand', brand);
+        if (type) params.append('contact_type', type);
+        if (status) params.append('status', status);
+        if (search) params.append('search', search);
+        
+        const response = await fetch(`/api/contacts?${params}`);
+        if (response.ok) {
+            const contacts = await response.json();
+            console.log('👥 Contacts loaded:', contacts.length, 'contacts');
+            displayContacts(contacts);
+        } else {
+            console.error('❌ Contacts API returned:', response.status, response.statusText);
+        }
+    } catch (error) {
+        console.error('❌ Error loading contacts:', error);
+    }
+}
+
+function displayContacts(contacts) {
+    const tbody = document.getElementById('contactsTableBody');
+    
+    if (contacts.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                    <i class="fas fa-users text-2xl mb-2"></i>
+                    <p>No contacts found matching your criteria.</p>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    tbody.innerHTML = contacts.map(contact => {
+        const socialLinks = extractSocialLinks(contact.notes || '');
+        const socialLinksHtml = socialLinks.map(link => 
+            `<a href="${link.url}" target="_blank" title="View ${link.platform} profile" class="hover:scale-110 transition-transform mr-2">
+                <i class="${getPlatformIcon(link.platform)} text-sm"></i>
+            </a>`
+        ).join('');
+        
+        return `
+            <tr class="hover:bg-gray-50 cursor-pointer" onclick="viewContactById('${contact.id}')">
+                <td class="px-6 py-4">
+                    <div>
+                        <div class="text-sm font-medium text-gray-900">${contact.name}</div>
+                        <div class="text-sm text-gray-500">${contact.email || contact.company || 'No email'}</div>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                        ${contact.brand}
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize
+                        ${contact.contact_type === 'email' ? 'bg-blue-100 text-blue-800' : 
+                          contact.contact_type === 'social' ? 'bg-purple-100 text-purple-800' : 
+                          'bg-orange-100 text-orange-800'}">
+                        ${contact.contact_type}
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full capitalize
+                        ${contact.status === 'active' ? 'bg-green-100 text-green-800' : 
+                          contact.status === 'inactive' ? 'bg-gray-100 text-gray-800' : 
+                          'bg-red-100 text-red-800'}">
+                        ${contact.status}
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    ${socialLinksHtml || '<span class="text-gray-400 text-xs">No profiles</span>'}
+                    ${contact.followers_count ? `<div class="text-xs text-gray-500 mt-1">👥 ${formatNumber(contact.followers_count)}</div>` : ''}
+                </td>
+                <td class="px-6 py-4">
+                    <button onclick="event.stopPropagation(); editContact('${contact.id}')" class="text-indigo-600 hover:text-indigo-900 mr-2">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="event.stopPropagation(); deleteContact('${contact.id}', '${contact.name}')" class="text-red-600 hover:text-red-900">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function viewContactById(contactId) {
+    try {
+        const response = await fetch(`/api/contacts/${contactId}`);
+        if (response.ok) {
+            selectedContact = await response.json();
+            populateContactModal();
+            showContactModal();
+        } else {
+            alert('Failed to load contact details.');
+        }
+    } catch (error) {
+        console.error('Error loading contact details:', error);
+        alert('Error loading contact details.');
+    }
+}
+
+function editContact(contactId) {
+    alert(`Edit functionality for contact ${contactId} coming soon!`);
+}
+
+function deleteContact(contactId, contactName) {
+    if (confirm(`Are you sure you want to delete ${contactName}?`)) {
+        alert(`Delete functionality for ${contactName} coming soon!`);
+    }
+}
+
+// Close modals when clicking outside
+document.addEventListener('click', function(event) {
+    const contactModal = document.getElementById('contactModal');
+    const addContactModal = document.getElementById('addContactModal');
+    
+    if (event.target === contactModal) {
+        closeContactModal();
+    }
+    if (event.target === addContactModal) {
+        closeAddContactModal();
+    }
+});
+
+// ESC key to close modals
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeContactModal();
+        closeAddContactModal();
+    }
+});
+</script>
+{% endblock %}

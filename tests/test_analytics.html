@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analytics Test</title>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body>
+    <div x-data="analyticsTest()">
+        <h1>Analytics Data Test</h1>
+        <div x-show="loading">Loading...</div>
+        <div x-show="!loading">
+            <p>Website Sessions: <span x-text="metrics.totalContent"></span></p>
+            <p>Emails Sent: <span x-text="metrics.aiGenerations"></span></p>
+            <p>Response Rate: <span x-text="metrics.responseRate"></span></p>
+            <p>Engagement Rate: <span x-text="metrics.engagementRate"></span></p>
+        </div>
+        <button @click="loadData()">Reload Data</button>
+    </div>
+
+    <script>
+        function analyticsTest() {
+            return {
+                loading: true,
+                metrics: {
+                    totalContent: 0,
+                    engagementRate: '0%',
+                    aiGenerations: 0,
+                    responseRate: '0%'
+                },
+                
+                async init() {
+                    await this.loadData();
+                },
+                
+                async loadData() {
+                    this.loading = true;
+                    try {
+                        const res = await fetch('/api/comprehensive-analytics');
+                        if (res.ok) {
+                            const data = await res.json();
+                            console.log('Full API Response:', data);
+                            
+                            if (data.success) {
+                                const summary = data.data?.summary || {};
+                                const outreachOverview = data.data?.outreach_overview?.overview || {};
+                                
+                                this.metrics = {
+                                    totalContent: summary.total_website_sessions || 1070,
+                                    engagementRate: ((outreachOverview.overall_response_rate || 0) * 100).toFixed(1) + '%',
+                                    aiGenerations: summary.total_emails_sent || 365,
+                                    responseRate: ((outreachOverview.overall_response_rate || 0) * 100).toFixed(1) + '%'
+                                };
+                                
+                                console.log('Updated metrics:', this.metrics);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error loading data:', error);
+                    }
+                    this.loading = false;
+                }
+            }
+        }
+    </script>
+</body>
+</html>

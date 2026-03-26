@@ -1,0 +1,82 @@
+# Marketing Automation System - Requirements
+# Consolidated requirements from all automation components
+
+# Core Python packages
+requests>=2.31.0
+requests-oauthlib>=1.3.1
+aiohttp>=3.8.5
+asyncio-throttle>=0.1.0
+
+# Configuration and data handling
+PyYAML>=6.0.1
+python-dotenv>=1.0.0
+cryptography>=41.0.3
+
+# Database
+# sqlite3 is built into Python
+
+# Web framework for dashboard
+flask>=2.3.3
+jinja2>=3.1.2
+
+# Additional dashboard dependencies
+gunicorn>=21.2.0  # Production WSGI server
+
+# Data processing and analysis
+pandas>=2.1.0
+numpy>=1.24.0
+
+# Email automation
+# smtplib is built into Python
+email-validator>=2.0.0
+
+# Social media APIs
+tweepy>=4.14.0  # Alternative to requests-oauthlib for Twitter
+
+# Web scraping (for outreach automation)
+beautifulsoup4>=4.12.0
+selenium>=4.12.0
+lxml>=4.9.0
+
+# Analytics and monitoring
+google-analytics-data>=0.17.0
+google-api-python-client>=2.95.0
+
+# Scheduling and automation
+schedule>=1.2.0
+python-crontab>=2.7.0
+
+# Logging and monitoring
+structlog>=23.1.0
+
+# Development and testing
+pytest>=7.4.0
+black>=23.7.0
+flake8>=6.0.0
+
+# Optional: AI/ML for content generation
+openai>=0.27.0  # For enhanced content generation
+
+# System utilities
+psutil>=5.9.0
+# pathlib is built into Python
+
+# Date/time handling
+python-dateutil>=2.8.0
+
+# HTTP client alternatives
+httpx>=0.24.0  # Modern alternative to requests
+
+# Task queue (for background processing)
+celery>=5.3.0
+redis>=4.6.0
+
+# Monitoring and alerting
+prometheus-client>=0.17.0
+
+# Security
+bcrypt>=4.0.0
+
+# CLI utilities
+click>=8.1.0
+rich>=13.5.0  # For beautiful terminal output

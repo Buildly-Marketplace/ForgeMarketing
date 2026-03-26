@@ -1,0 +1,210 @@
+# AI Configuration for Marketing Automation
+# Configuration for Ollama AI integration and content generation
+
+ollama:
+  base_url: "http://pop-os2.local:11434"
+  
+  # Model Configuration
+  default_model: "llama3.2:1b"
+  available_models:
+    - name: "llama3.2:1b"
+      purpose: "general content generation"
+      max_tokens: 2048
+      context_window: 4096
+    - name: "qwen:7b"
+      purpose: "detailed content and analysis"
+      max_tokens: 4096
+      context_window: 8192
+    - name: "deepseek-r1:1.5b"
+      purpose: "technical reasoning"
+      max_tokens: 2048
+      context_window: 4096
+    - name: "gemma3:latest"
+      purpose: "creative content"
+      max_tokens: 4096
+      context_window: 8192
+    
+  # Generation settings for different content types
+  generation_settings:
+    blog_posts:
+      temperature: 0.7                   # Balance creativity vs consistency
+      max_tokens: 2500                   # Long-form content
+      top_p: 0.9
+      repeat_penalty: 1.1
+      
+    social_media:
+      temperature: 0.8                   # Higher creativity for engagement
+      max_tokens: 150                    # Short content
+      top_p: 0.9
+      repeat_penalty: 1.2                # Avoid repetitive posts
+      
+    outreach_emails:
+      temperature: 0.6                   # More conservative for professional communication
+      max_tokens: 400                    # Medium length emails
+      top_p: 0.85
+      repeat_penalty: 1.1
+      
+    marketing_copy:
+      temperature: 0.75                  # Creative but focused
+      max_tokens: 1000                   # Variable length copy
+      top_p: 0.9
+      repeat_penalty: 1.15
+
+# Content generation prompts and templates
+prompts:
+  system_prompts:
+    brand_voice: |
+      You are a professional content writer for {brand_name}.
+      Brand Voice: {brand_voice}
+      Target Audience: {target_audience}
+      Key Messages: {key_messages}
+      
+      Always maintain the brand's voice and tone while providing valuable, 
+      engaging content that resonates with the target audience.
+    
+    technical_expert: |
+      You are a technical expert and thought leader in {domain}.
+      Write with authority and expertise while keeping content accessible.
+      Include practical examples and actionable insights.
+      
+    community_builder: |
+      You are a community manager focused on building engagement and 
+      fostering discussions. Write in a friendly, inclusive tone that 
+      encourages participation and sharing.
+
+  content_templates:
+    blog_post_structure: |
+      # {title}
+      
+      ## Introduction
+      Hook the reader and introduce the topic
+      
+      ## Main Content
+      Detailed explanation with examples
+      
+      ## Practical Application
+      How to implement or use this information
+      
+      ## Conclusion
+      Summary and call-to-action
+      
+    social_post_structure: |
+      {hook_or_question}
+      
+      {main_point}
+      
+      {hashtags} {call_to_action}
+      
+    outreach_email_structure: |
+      Subject: {personalized_subject}
+      
+      Hi {recipient_name},
+      
+      {personalized_opening}
+      
+      {value_proposition}
+      
+      {specific_ask_or_cta}
+      
+      Best regards,
+      {sender_name}
+      {brand_signature}
+
+# Content quality and optimization settings  
+quality_control:
+  min_word_counts:
+    blog_post: 500
+    social_post: 10
+    outreach_email: 50
+    marketing_copy: 100
+    
+  max_word_counts:
+    blog_post: 2000
+    social_post: 50
+    outreach_email: 300
+    marketing_copy: 500
+    
+  quality_checks:
+    - grammar_and_spelling
+    - brand_voice_consistency
+    - readability_score
+    - keyword_optimization
+    - call_to_action_presence
+    
+  content_guidelines:
+    tone_requirements:
+      professional: ["clear", "authoritative", "helpful"]
+      friendly: ["warm", "approachable", "conversational"]
+      technical: ["precise", "detailed", "evidence-based"]
+      
+    avoid_phrases:
+      - "revolutionary breakthrough"
+      - "game-changer"
+      - "cutting-edge solution"
+      - "industry-leading"
+      - "best-in-class"
+      
+    preferred_style:
+      - "Use active voice"
+      - "Write in second person when addressing audience"
+      - "Include specific examples and use cases"
+      - "Focus on benefits over features"
+      - "Include clear calls-to-action"
+
+# Fine-tuning and training configuration
+training:
+  brand_voice_training:
+    enabled: true
+    training_data_sources:
+      - existing_blog_posts
+      - successful_social_posts  
+      - high_performing_outreach_emails
+      - website_copy
+      - marketing_materials
+      
+  content_performance_tracking:
+    metrics_to_track:
+      - engagement_rates
+      - click_through_rates
+      - response_rates
+      - conversion_rates
+      - social_shares
+      
+  continuous_improvement:
+    feedback_integration: true
+    a_b_testing: true
+    performance_optimization: true
+    
+# Rate limiting and usage optimization
+usage_optimization:
+  rate_limits:
+    requests_per_minute: 30
+    requests_per_hour: 500
+    requests_per_day: 2000
+    
+  caching:
+    enabled: true
+    cache_duration_minutes: 60
+    cache_similar_prompts: true
+    
+  batch_processing:
+    enabled: true
+    batch_size: 5
+    batch_delay_seconds: 2
+    
+# Integration settings
+integrations:
+  content_calendar:
+    auto_schedule: true
+    optimal_posting_times: true
+    content_variety_enforcement: true
+    
+  analytics:
+    track_generation_metrics: true
+    content_performance_analysis: true
+    model_performance_comparison: true
+    
+  approval_workflow:
+    require_human_approval: false      # Set to true for initial testing
+    auto_approve_threshold: 0.85       # Quality score threshold
+    manual_review_queue: true

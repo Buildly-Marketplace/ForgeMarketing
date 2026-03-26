@@ -1,0 +1,734 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    [x-cloak] { display: none !important; }
+</style>
+<div class="space-y-6" x-data="campaignManager()" @keydown.escape.window="showScheduleModal = false">
+    <!-- Header -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Campaign Manager</h1>
+                <p class="text-gray-600 mt-1">Execute and manage outreach campaigns across all brands</p>
+            </div>
+            <div class="flex space-x-3">
+                <a href="/influencers" 
+                   class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 inline-flex items-center">
+                    <i class="fas fa-users mr-2"></i>Influencer Discovery
+                </a>
+                <button @click="executeAllCampaigns()" :disabled="executing" 
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50">
+                    <i class="fas fa-rocket mr-2" :class="{'fa-spin': executing}"></i>
+                    <span x-show="!executing">Run All Campaigns</span>
+                    <span x-show="executing">Executing...</span>
+                </button>
+                <button @click="showScheduleModal = true" 
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                    <i class="fas fa-calendar mr-2"></i>Schedule Campaign
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campaign Status Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Active Brands</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="stats.activeBrands">5</p>
+                </div>
+                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-users text-blue-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Emails Sent</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="stats.emailsSent">0</p>
+                </div>
+                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-envelope text-green-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Response Rate</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="stats.responseRate + '%'">0%</p>
+                </div>
+                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-reply text-purple-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-gray-600">Total Targets</p>
+                    <p class="text-3xl font-bold text-gray-900" x-text="stats.totalTargets">0</p>
+                </div>
+                <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-target text-orange-600 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brand Filter -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold">Filter by Brand</h3>
+            <button @click="selectedBrand = 'all'" :class="selectedBrand === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                    class="px-3 py-1 rounded-lg text-sm font-medium">
+                All Brands
+            </button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <template x-for="(brand, index) in brands" :key="`brand-filter-${brand.key}-${index}`">
+                <button @click="selectedBrand = brand.key" 
+                        :class="selectedBrand === brand.key ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'"
+                        class="px-4 py-2 rounded-lg font-medium">
+                    <i :class="brand.icon" class="mr-2"></i>
+                    <span x-text="brand.name"></span>
+                </button>
+            </template>
+        </div>
+    </div>
+
+    <!-- Brand Campaign Controls -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h3 class="text-lg font-semibold mb-6">Campaign Execution</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <template x-for="(brand, index) in filteredBrands" :key="`brand-exec-${brand.key}-${index}`">
+                <div class="border rounded-lg p-4 hover:shadow-lg transition-shadow">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h4 class="font-semibold" x-text="brand.name"></h4>
+                            <p class="text-sm text-gray-600" x-text="'Targets: ' + brand.targets"></p>
+                            <p class="text-xs text-gray-500" x-text="(brand.emails_sent || 0) + ' out of ' + (brand.total_targets || 0) + ' actions completed'"></p>
+                        </div>
+                        <div class="w-10 h-10 rounded-lg flex items-center justify-center" :class="brand.color">
+                            <i :class="brand.icon" class="text-white"></i>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <button @click="executeCampaign(brand.key, 'general')" 
+                                class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm">
+                            <i class="fas fa-envelope mr-2"></i>General Outreach
+                        </button>
+                        <button @click="executeCampaign(brand.key, 'discovery')" 
+                                class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+                            <i class="fas fa-search mr-2"></i>Target Discovery
+                        </button>
+                        <button @click="executeCampaign(brand.key, 'follow_up')" 
+                                class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm">
+                            <i class="fas fa-reply mr-2"></i>Follow-up
+                        </button>
+                    </div>
+                    <div class="mt-3 text-center">
+                        <span class="text-xs px-2 py-1 rounded-full" 
+                              :class="brand.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                              x-text="brand.status"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Campaign History -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-semibold">Recent Campaign Activity</h3>
+            <button @click="loadCampaignHistory()" class="text-blue-600 hover:text-blue-800">
+                <i class="fas fa-refresh mr-1"></i>Refresh
+            </button>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="(activity, index) in recentActivity" :key="`activity-${index}-${activity.brand || 'unknown'}`">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800" 
+                                      x-text="activity.brand"></span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900" x-text="activity.target_name || 'Unknown'"></td>
+                            <td class="px-6 py-4 text-sm text-gray-500" x-text="(activity.subject || '').substring(0, 50) + '...'"></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full" 
+                                      :class="activity.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'"
+                                      x-text="activity.status"></span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500" x-text="formatDate(activity.delivery_time)"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Campaign Reports Section -->
+<div class="bg-white rounded-lg shadow-sm border">
+    <div class="border-b border-gray-200 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold">Campaign Reports</h3>
+            <button @click="loadReports()" class="text-blue-600 hover:text-blue-800 text-sm">
+                <i class="fas fa-sync-alt mr-1"></i>Refresh
+            </button>
+        </div>
+    </div>
+    
+    <div x-show="loadingReports" class="p-6 text-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        <p class="text-gray-500 mt-2">Loading reports...</p>
+    </div>
+    
+    <div x-show="!loadingReports && campaignReports.length === 0" class="p-6 text-center text-gray-500">
+        <i class="fas fa-file-alt text-3xl mb-2"></i>
+        <p>No campaign reports available yet.</p>
+        <p class="text-sm">Reports are generated automatically when campaigns are executed.</p>
+    </div>
+    
+    <div x-show="!loadingReports && campaignReports.length > 0" class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Generated</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Emails Sent</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response Rate</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <template x-for="(report, index) in campaignReports.slice(0, 5)" :key="`report-${report.report_id || index}`">
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800" 
+                                  x-text="report.brand"></span>
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500" x-text="formatDate(report.generated_at)"></td>
+                        <td class="px-6 py-4 text-sm text-gray-900" x-text="report.summary?.total_emails || 0"></td>
+                        <td class="px-6 py-4 text-sm">
+                            <span class="font-medium"
+                                  :class="(report.summary?.response_rate || 0) >= 5 ? 'text-green-600' : (report.summary?.response_rate || 0) >= 2 ? 'text-yellow-600' : 'text-red-600'"
+                                  x-text="`${report.summary?.response_rate || 0}%`"></span>
+                        </td>
+                        <td class="px-6 py-4 text-sm">
+                            <a :href="`/reports/campaign?id=${report.report_id}`" 
+                               target="_blank"
+                               class="text-blue-600 hover:text-blue-800 font-medium">
+                                <i class="fas fa-external-link-alt mr-1"></i>View Report
+                            </a>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+        
+        <div x-show="campaignReports.length > 5" class="px-6 py-4 bg-gray-50 border-t">
+            <a href="/reports" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                View all reports →
+            </a>
+        </div>
+    </div>
+</div>
+
+    <!-- Schedule Campaign Modal -->
+    <div x-show="showScheduleModal" 
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         @click.self="showScheduleModal = false"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+         style="display: none;">
+        <div x-transition:enter="transition ease-out duration-300 transform"
+             x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+             x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+             x-transition:leave="transition ease-in duration-200 transform"
+             x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+             x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+             @click.stop
+             class="bg-white rounded-lg p-6 w-96 max-w-md mx-4 shadow-xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">Schedule Campaign</h3>
+                <button @click="showScheduleModal = false" 
+                        class="text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600 transition">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+                    <select x-model="scheduleForm.brand" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select Brand</option>
+                        <template x-for="(brand, index) in brands" :key="`brand-modal-${brand.key}-${index}`">
+                            <option :value="brand.key" x-text="brand.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Campaign Type</label>
+                    <select x-model="scheduleForm.type" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="general">General Outreach</option>
+                        <option value="discovery">Target Discovery</option>
+                        <option value="follow_up">Follow-up Campaign</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Target Count</label>
+                    <input type="number" 
+                           x-model="scheduleForm.targetCount" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                           min="1" max="50">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Schedule Time</label>
+                    <input type="datetime-local" 
+                           x-model="scheduleForm.scheduledTime" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            <div class="flex space-x-3 mt-6">
+                <button @click="showScheduleModal = false" 
+                        class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition duration-200">
+                    Cancel
+                </button>
+                <button @click="scheduleCampaign()" 
+                        :disabled="!scheduleForm.brand"
+                        class="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200">
+                    <i class="fas fa-calendar-plus mr-2"></i>Schedule
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function campaignManager() {
+    return {
+        loading: false,
+        executing: false,
+        showScheduleModal: false,
+        selectedBrand: 'all',
+        stats: {
+            activeBrands: 5,
+            emailsSent: 0,
+            responseRate: 0,
+            totalTargets: 0
+        },
+        brands: [
+            { key: 'foundry', name: 'Foundry', targets: 100, emails_sent: 0, total_targets: 0, status: 'active', icon: 'fas fa-industry', color: 'bg-blue-600' },
+            { key: 'openbuild', name: 'Open Build', targets: 18, emails_sent: 0, total_targets: 0, status: 'active', icon: 'fas fa-code', color: 'bg-green-600' },
+            { key: 'buildly', name: 'Buildly', targets: 0, emails_sent: 0, total_targets: 0, status: 'inactive', icon: 'fas fa-cubes', color: 'bg-purple-600' },
+            { key: 'radical', name: 'Radical Therapy', targets: 0, emails_sent: 0, total_targets: 0, status: 'inactive', icon: 'fas fa-heart', color: 'bg-red-600' },
+            { key: 'oregonsoftware', name: 'Oregon Software', targets: 0, emails_sent: 0, total_targets: 0, status: 'inactive', icon: 'fas fa-laptop-code', color: 'bg-indigo-600' }
+        ],
+        recentActivity: [],
+        campaignReports: [],
+        loadingReports: false,
+        scheduleForm: {
+            brand: '',
+            type: 'general',
+            targetCount: 10,
+            scheduledTime: ''
+        },
+        
+        async init() {
+            await this.loadData();
+            await this.loadReports();
+        },
+        
+        get filteredBrands() {
+            if (this.selectedBrand === 'all') {
+                return this.brands;
+            }
+            return this.brands.filter(brand => brand.key === this.selectedBrand);
+        },
+        
+        async loadData() {
+            this.loading = true;
+            try {
+                const response = await fetch('/api/outreach/overview');
+                const data = await response.json();
+                
+                if (data && data.overview) {
+                    this.stats = {
+                        activeBrands: data.total_brands || 5,
+                        emailsSent: data.overview.total_emails_sent || 0,
+                        responseRate: Math.round(data.overview.overall_response_rate || 0),
+                        totalTargets: data.overview.total_targets || 0
+                    };
+                }
+                
+                if (data.recent_activity) {
+                    this.recentActivity = data.recent_activity.slice(0, 10).map((activity, index) => ({
+                        ...activity,
+                        id: activity.id || `activity_${index}_${Date.now()}`
+                    }));
+                }
+                
+                // Update brand data with real targets
+                if (data.brands) {
+                    Object.keys(data.brands).forEach(brandKey => {
+                        const brandData = data.brands[brandKey];
+                        const brand = this.brands.find(b => b.key === brandKey);
+                        if (brand) {
+                            brand.targets = brandData.total_targets || 0;
+                            brand.emails_sent = brandData.emails_sent || 0;
+                            brand.total_targets = brandData.total_targets || 0;
+                            brand.status = brandData.total_targets > 0 ? 'active' : 'inactive';
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading campaign data:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        async loadReports() {
+            this.loadingReports = true;
+            try {
+                const response = await fetch('/api/reports');
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.campaignReports = data.reports || [];
+                } else {
+                    console.error('Error loading reports:', data.error);
+                }
+            } catch (error) {
+                console.error('Error loading campaign reports:', error);
+            } finally {
+                this.loadingReports = false;
+            }
+        },
+
+        
+        async executeCampaign(brand, type) {
+            this.executing = true;
+            try {
+                showNotification(`Executing ${type} campaign for ${brand}...`, 'info');
+                
+                const response = await fetch(`/api/campaigns/execute/${brand}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: type,
+                        target_count: 5
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    let message;
+                    
+                    if (result.type === 'discovery_setup') {
+                        // Handle discovery setup response
+                        message = `🚀 <strong>Automated Discovery Cron Jobs Set Up!</strong><br>
+                            • Daily discovery: ${result.details.daily_discovery}<br>
+                            • Weekly extended: ${result.details.weekly_extended}<br>
+                            • Next run: ${result.details.next_run}`;
+                    } else {
+                        // Handle regular campaign response
+                        message = `Campaign executed successfully! Sent ${result.emails_sent || 0} emails to ${result.targets_processed || 0} targets.`;
+                        
+                        // Add report link if available
+                        if (result.report_url) {
+                            message += ` <a href="${result.report_url}" class="underline text-blue-600 hover:text-blue-800" target="_blank">View Report</a>`;
+                        }
+                    }
+                    
+                    showNotification(message, 'success', true); // Allow HTML in notification
+                    await this.loadData(); // Reload data
+                    await this.loadReports(); // Reload reports
+                } else {
+                    showNotification(`Campaign failed: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Campaign execution error:', error);
+                showNotification('Campaign execution failed', 'error');
+            } finally {
+                this.executing = false;
+            }
+        },
+        
+        async executeAllCampaigns() {
+            this.executing = true;
+            try {
+                const activeBrands = this.brands.filter(b => b.status === 'active');
+                
+                for (const brand of activeBrands) {
+                    await this.executeCampaign(brand.key, 'general');
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+                }
+                
+                showNotification('All campaigns completed!', 'success');
+            } finally {
+                this.executing = false;
+            }
+        },
+        
+        async scheduleCampaign() {
+            if (!this.scheduleForm.brand) {
+                showNotification('Please select a brand', 'error');
+                return;
+            }
+            
+            if (!this.scheduleForm.scheduledTime) {
+                showNotification('Please select a schedule time', 'error');
+                return;
+            }
+            
+            try {
+                // Here you would make an API call to actually schedule the campaign
+                // const response = await fetch('/api/campaigns/schedule', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify(this.scheduleForm)
+                // });
+                
+                const brand = this.brands.find(b => b.key === this.scheduleForm.brand);
+                showNotification(`${this.scheduleForm.type} campaign scheduled for ${brand.name} at ${new Date(this.scheduleForm.scheduledTime).toLocaleString()}`, 'success');
+                
+                // Reset form and close modal
+                this.showScheduleModal = false;
+                this.scheduleForm = { 
+                    brand: '', 
+                    type: 'general', 
+                    targetCount: 10,
+                    scheduledTime: ''
+                };
+                
+                // Reload data to reflect changes
+                await this.loadData();
+                
+            } catch (error) {
+                console.error('Schedule campaign error:', error);
+                showNotification('Failed to schedule campaign: ' + error.message, 'error');
+            }
+        },
+        
+        formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            return new Date(dateString).toLocaleDateString();
+        },
+        
+        loadCampaignHistory() {
+            this.loadData();
+        }
+    };
+}
+
+function loadCampaignHistory() {
+    fetch('/api/outreach/overview')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('campaign-history-container');
+            
+            if (data.recent_activity && data.recent_activity.length > 0) {
+                let html = '<div class="table-responsive"><table class="table table-striped"><thead><tr><th>Brand</th><th>Target</th><th>Subject</th><th>Status</th><th>Date</th></tr></thead><tbody>';
+                
+                data.recent_activity.slice(0, 10).forEach(activity => {
+                    html += `
+                        <tr>
+                            <td><span class="badge bg-primary">${activity.brand}</span></td>
+                            <td>${activity.target_name || 'Unknown'}</td>
+                            <td>${(activity.subject || '').substring(0, 50)}...</td>
+                            <td><span class="badge bg-${activity.status === 'sent' ? 'success' : 'warning'}">${activity.status}</span></td>
+                            <td>${new Date(activity.delivery_time).toLocaleDateString()}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="alert alert-info">No recent campaign activity</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading campaign history:', error);
+            document.getElementById('campaign-history-container').innerHTML = 
+                '<div class="alert alert-danger">Error loading campaign history</div>';
+        });
+}
+
+function executeBrandCampaign(brand, type) {
+    const statusElement = document.getElementById(`${brand}-status`);
+    statusElement.textContent = 'Running...';
+    statusElement.className = 'badge bg-warning';
+    
+    fetch(`/api/campaigns/execute/${brand}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: type,
+            target_count: 5
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            statusElement.textContent = 'Success';
+            statusElement.className = 'badge bg-success';
+            
+            // Show success notification
+            showNotification(`Campaign executed successfully for ${brand}: ${data.emails_sent} emails sent`, 'success');
+            
+            // Reload data after 2 seconds
+            setTimeout(() => {
+                loadCampaignStatus();
+                loadCampaignHistory();
+                statusElement.textContent = 'Ready';
+                statusElement.className = 'badge bg-secondary';
+            }, 2000);
+        } else {
+            statusElement.textContent = 'Error';
+            statusElement.className = 'badge bg-danger';
+            showNotification(`Campaign failed for ${brand}: ${data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error executing campaign:', error);
+        statusElement.textContent = 'Error';
+        statusElement.className = 'badge bg-danger';
+        showNotification('Campaign execution failed', 'error');
+    });
+}
+
+function scheduleNewCampaign() {
+    const modal = new bootstrap.Modal(document.getElementById('campaignModal'));
+    modal.show();
+}
+
+function executeCampaign() {
+    const brand = document.getElementById('campaignBrand').value;
+    const type = document.getElementById('campaignType').value;
+    const targetCount = document.getElementById('targetCount').value;
+    
+    if (!brand || !type) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+    }
+    
+    const resultDiv = document.getElementById('campaignResult');
+    resultDiv.innerHTML = '<div class="spinner-border spinner-border-sm" role="status"></div> Executing campaign...';
+    resultDiv.style.display = 'block';
+    
+    fetch(`/api/campaigns/execute/${brand}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: type,
+            target_count: parseInt(targetCount)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <strong>Campaign Executed Successfully!</strong><br>
+                    Brand: ${data.brand}<br>
+                    Emails Sent: ${data.emails_sent}<br>
+                    Targets Processed: ${data.targets_processed}
+                </div>
+            `;
+            
+            // Reload campaign data
+            setTimeout(() => {
+                loadCampaignStatus();
+                loadCampaignHistory();
+            }, 1000);
+        } else {
+            resultDiv.innerHTML = `<div class="alert alert-danger"><strong>Campaign Failed:</strong> ${data.error}</div>`;
+        }
+    })
+    .catch(error => {
+        console.error('Error executing campaign:', error);
+        resultDiv.innerHTML = '<div class="alert alert-danger">Error executing campaign</div>';
+    });
+}
+
+function executeAllCampaigns() {
+    if (confirm('Execute campaigns for all brands? This will send outreach emails.')) {
+        const brands = ['foundry', 'openbuild', 'buildly'];
+        
+        brands.forEach((brand, index) => {
+            setTimeout(() => {
+                executeBrandCampaign(brand, 'general');
+            }, index * 2000); // Stagger execution by 2 seconds
+        });
+    }
+}
+
+// Utility functions
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+function showNotification(message, type, allowHTML = false) {
+    const notification = document.createElement('div');
+    const bgColor = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500';
+    
+    notification.className = `fixed top-4 right-4 ${bgColor} text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-sm`;
+    
+    const messageContent = allowHTML ? message : escapeHtml(message);
+    
+    notification.innerHTML = `
+        <div class="flex items-center justify-between">
+            <span>${messageContent}</span>
+            <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

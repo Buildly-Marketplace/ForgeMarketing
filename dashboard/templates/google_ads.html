@@ -1,0 +1,531 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6" x-data="googleAds()">
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">🎯 Google Ads Management</h1>
+                <p class="text-gray-600 mt-2">Create, monitor, and optimize Google Ads campaigns across all brands</p>
+            </div>
+            <div class="flex space-x-2">
+                <button @click="refreshData()" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+                <button @click="showCreateModal = true" 
+                        class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-plus mr-2"></i>Create Campaign
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overview Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                    <i class="fas fa-bullhorn text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Campaigns</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="overview.totals?.campaigns || 0"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-green-100 text-green-600">
+                    <i class="fas fa-dollar-sign text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Daily Budget</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="'$' + (overview.totals?.daily_budget || 0)"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                    <i class="fas fa-mouse-pointer text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Clicks</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="(overview.totals?.clicks || 0).toLocaleString()"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-orange-100 text-orange-600">
+                    <i class="fas fa-eye text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Impressions</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="(overview.totals?.impressions || 0).toLocaleString()"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Brand Tabs -->
+    <div class="bg-white rounded-lg shadow-md mb-6">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8 px-6">
+                <template x-for="brand in brands" :key="brand">
+                    <button @click="selectedBrand = brand" 
+                            :class="selectedBrand === brand ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm capitalize transition-colors duration-200"
+                            x-text="brand.replace('_', ' ')">
+                    </button>
+                </template>
+            </nav>
+        </div>
+
+        <!-- Brand Content -->
+        <div class="p-6">
+            <div x-show="selectedBrand" class="space-y-6">
+                <!-- Brand Performance -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                            <span x-text="selectedBrand ? selectedBrand.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''"></span> Performance
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Campaigns:</span>
+                                <span class="font-semibold" x-text="brandPerformance.campaigns || 0"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Daily Budget:</span>
+                                <span class="font-semibold" x-text="'$' + (brandPerformance.daily_budget || 0)"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Impressions:</span>
+                                <span class="font-semibold" x-text="(brandPerformance.performance?.impressions || 0).toLocaleString()"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Clicks:</span>
+                                <span class="font-semibold" x-text="(brandPerformance.performance?.clicks || 0).toLocaleString()"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">CTR:</span>
+                                <span class="font-semibold" x-text="(brandPerformance.performance?.ctr || 0) + '%'"></span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">CPA:</span>
+                                <span class="font-semibold" x-text="'$' + (brandPerformance.performance?.cpa || 0)"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+                        <div class="space-y-3">
+                            <button @click="showCreateModal = true; createForm.brand = selectedBrand" 
+                                    class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition-colors duration-200">
+                                <i class="fas fa-plus mr-2"></i>Create Campaign
+                            </button>
+                            <button @click="suggestKeywords(selectedBrand)" 
+                                    class="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg transition-colors duration-200">
+                                <i class="fas fa-search mr-2"></i>Keyword Ideas
+                            </button>
+                            <button @click="optimizeBrand(selectedBrand)" 
+                                    class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg transition-colors duration-200">
+                                <i class="fas fa-magic mr-2"></i>Optimize Campaigns
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Campaigns List -->
+                <div class="bg-white border rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-800">Campaigns</h3>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Campaign
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Type
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Status
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Budget
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Actions
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="campaign in brandCampaigns" :key="campaign.id">
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="text-sm font-medium text-gray-900" x-text="campaign.name"></div>
+                                            <div class="text-sm text-gray-500" x-text="'Created: ' + campaign.created_date"></div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="campaign.type"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span :class="campaign.status === 'ENABLED' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'" 
+                                                  class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                                <i :class="campaign.status === 'ENABLED' ? 'fas fa-play' : 'fas fa-pause'" class="mr-1"></i>
+                                                <span x-text="campaign.status"></span>
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="'$' + campaign.daily_budget"></td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                                            <template x-if="campaign.status === 'ENABLED'">
+                                                <button @click="pauseCampaign(selectedBrand, campaign.id)" 
+                                                        class="text-yellow-600 hover:text-yellow-900">
+                                                    <i class="fas fa-pause text-xs"></i> Pause
+                                                </button>
+                                            </template>
+                                            <template x-if="campaign.status === 'PAUSED'">
+                                                <button @click="resumeCampaign(selectedBrand, campaign.id)" 
+                                                        class="text-green-600 hover:text-green-900">
+                                                    <i class="fas fa-play text-xs"></i> Resume
+                                                </button>
+                                            </template>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Campaign Modal -->
+    <div x-show="showCreateModal" x-transition class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Create New Campaign</h3>
+                    <button @click="showCreateModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form @submit.prevent="createCampaign()">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+                            <select x-model="createForm.brand" required
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                                <template x-for="brand in brands" :key="brand">
+                                    <option :value="brand" x-text="brand.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Campaign Type</label>
+                            <select x-model="createForm.campaign_type" required
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                                <option value="Search">Search</option>
+                                <option value="Display">Display</option>
+                                <option value="Performance Max">Performance Max</option>
+                                <option value="YouTube">YouTube</option>
+                                <option value="Shopping">Shopping</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Campaign Name</label>
+                        <input type="text" x-model="createForm.campaign_name" required
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                               placeholder="e.g., Buildly Q4 2025 Search Campaign">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Daily Budget ($)</label>
+                        <input type="number" x-model="createForm.budget_daily" step="0.01" min="1"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                               placeholder="50.00">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Keywords (one per line)</label>
+                        <textarea x-model="createForm.keywords" rows="4" 
+                                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                  placeholder="low code platform&#10;business app builder&#10;rapid development"></textarea>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" @click="showCreateModal = false" 
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                            Cancel
+                        </button>
+                        <button type="submit" :disabled="createForm.creating"
+                                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50">
+                            <span x-show="!createForm.creating">Create Campaign</span>
+                            <span x-show="createForm.creating">Creating...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keyword Suggestions Modal -->
+    <div x-show="showKeywordsModal" x-transition class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-3/4 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Keyword Suggestions</h3>
+                    <button @click="showKeywordsModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div x-show="keywordSuggestions.length > 0" class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Keyword</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Search Volume</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Competition</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Suggested Bid</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Relevance</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="keyword in keywordSuggestions" :key="keyword.keyword">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="keyword.keyword"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="keyword.search_volume.toLocaleString()"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="keyword.competition === 'LOW' ? 'bg-green-100 text-green-800' : keyword.competition === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'" 
+                                              class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" x-text="keyword.competition">
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="'$' + keyword.suggested_bid"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="w-full bg-gray-200 rounded-full h-2 mr-2">
+                                                <div :style="`width: ${keyword.relevance_score * 100}%`" 
+                                                     class="bg-blue-600 h-2 rounded-full"></div>
+                                            </div>
+                                            <span class="text-sm text-gray-600" x-text="Math.round(keyword.relevance_score * 100) + '%'"></span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function googleAds() {
+    return {
+        overview: {},
+        brands: ['foundry', 'buildly', 'open_build', 'radical_therapy'],
+        selectedBrand: 'foundry',
+        brandPerformance: {},
+        brandCampaigns: [],
+        showCreateModal: false,
+        showKeywordsModal: false,
+        keywordSuggestions: [],
+        createForm: {
+            brand: 'foundry',
+            campaign_type: 'Search',
+            campaign_name: '',
+            budget_daily: '',
+            keywords: '',
+            creating: false
+        },
+        
+        async init() {
+            await this.loadOverview();
+            await this.loadBrandData();
+        },
+        
+        async loadOverview() {
+            try {
+                const response = await fetch('/api/google-ads/overview');
+                const result = await response.json();
+                if (result.success) {
+                    this.overview = result.data;
+                }
+            } catch (error) {
+                console.error('Error loading overview:', error);
+            }
+        },
+        
+        async loadBrandData() {
+            if (!this.selectedBrand) return;
+            
+            try {
+                // Load brand performance
+                const perfResponse = await fetch(`/api/google-ads/brand/${this.selectedBrand}/performance`);
+                const perfResult = await perfResponse.json();
+                if (perfResult.success) {
+                    this.brandPerformance = this.overview.brands?.[this.selectedBrand] || {};
+                }
+                
+                // Load brand campaigns
+                const campaignsResponse = await fetch(`/api/google-ads/brand/${this.selectedBrand}/campaigns`);
+                const campaignsResult = await campaignsResponse.json();
+                if (campaignsResult.success) {
+                    this.brandCampaigns = campaignsResult.data.campaigns;
+                }
+            } catch (error) {
+                console.error('Error loading brand data:', error);
+            }
+        },
+        
+        async refreshData() {
+            await Promise.all([this.loadOverview(), this.loadBrandData()]);
+        },
+        
+        async createCampaign() {
+            this.createForm.creating = true;
+            try {
+                const keywords = this.createForm.keywords ? 
+                    this.createForm.keywords.split('\n').map(k => k.trim()).filter(k => k) : [];
+                
+                const response = await fetch(`/api/google-ads/brand/${this.createForm.brand}/campaigns/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        campaign_name: this.createForm.campaign_name,
+                        campaign_type: this.createForm.campaign_type,
+                        keywords: keywords,
+                        budget_daily: parseFloat(this.createForm.budget_daily) || undefined
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Campaign created successfully!');
+                    this.showCreateModal = false;
+                    this.createForm = {
+                        brand: 'foundry',
+                        campaign_type: 'Search',
+                        campaign_name: '',
+                        budget_daily: '',
+                        keywords: '',
+                        creating: false
+                    };
+                    await this.refreshData();
+                } else {
+                    alert('Error creating campaign: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error creating campaign:', error);
+                alert('Error creating campaign');
+            } finally {
+                this.createForm.creating = false;
+            }
+        },
+        
+        async suggestKeywords(brand) {
+            try {
+                const response = await fetch(`/api/google-ads/brand/${brand}/keywords/suggest`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        seed_keywords: []
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    this.keywordSuggestions = result.data.suggestions;
+                    this.showKeywordsModal = true;
+                } else {
+                    alert('Error getting keyword suggestions: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error getting keyword suggestions:', error);
+                alert('Error getting keyword suggestions');
+            }
+        },
+        
+        async optimizeBrand(brand) {
+            try {
+                const response = await fetch(`/api/google-ads/brand/${brand}/optimize`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    const optimizations = result.data.optimizations_found || 0;
+                    if (optimizations > 0) {
+                        alert(`Found ${optimizations} optimization opportunities for ${brand}!`);
+                    } else {
+                        alert(`No optimizations needed for ${brand} - campaigns are performing well!`);
+                    }
+                } else {
+                    alert('Error running optimization: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error running optimization:', error);
+                alert('Error running optimization');
+            }
+        },
+        
+        async pauseCampaign(brand, campaignId) {
+            try {
+                const response = await fetch(`/api/google-ads/brand/${brand}/campaigns/${campaignId}/pause`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Campaign paused successfully!');
+                    await this.loadBrandData();
+                } else {
+                    alert('Error pausing campaign: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error pausing campaign:', error);
+                alert('Error pausing campaign');
+            }
+        },
+        
+        async resumeCampaign(brand, campaignId) {
+            try {
+                const response = await fetch(`/api/google-ads/brand/${brand}/campaigns/${campaignId}/resume`, {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Campaign resumed successfully!');
+                    await this.loadBrandData();
+                } else {
+                    alert('Error resuming campaign: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error resuming campaign:', error);
+                alert('Error resuming campaign');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,68 @@
+name: ForgeMark
+slug: forgemark
+version: 1.0.0
+summary: AI-powered marketing automation system for multi-brand outreach, content generation, and campaign management with unified analytics dashboard.
+license: BSL-1.1->Apache-2.0
+license_change_date: "2026-11-08"
+categories:
+  - marketing
+  - automation
+  - ai
+  - analytics
+targets:
+  - docker
+  - k8s
+  - github-pages
+author: Buildly Labs
+homepage: https://github.com/buildlyio/marketing
+repository: https://github.com/buildlyio/marketing
+description: |
+  ForgeMark is a comprehensive marketing automation platform designed for managing
+  multiple brands from a single dashboard. It features AI-powered content generation,
+  template-driven architecture, unified analytics, and automated outreach campaigns.
+  
+  Key capabilities:
+  - Multi-brand management (Buildly, The Foundry, Open Build, Radical Therapy)
+  - AI content generation via Ollama integration
+  - Email marketing automation
+  - Social media publishing
+  - Influencer discovery and outreach
+  - Campaign analytics and reporting
+  - Google Ads integration
+
+# Docker target configuration
+docker:
+  image: buildly/forgemark
+  ports:
+    - "5000:5000"
+  environment:
+    - FLASK_ENV=production
+    - OLLAMA_HOST=localhost:11434
+
+# Kubernetes target configuration  
+k8s:
+  helm_chart_path: ops/helm/forgemark
+  values_example: ops/helm/forgemark/values-example.yaml
+
+# GitHub Pages target (for dashboard)
+github-pages:
+  template_repo: buildlyio/forgemark-dashboard-template
+  actions_workflow: .github/workflows/pages.yml
+  build_command: "cd dashboard && python build_static.py"
+  
+# Documentation
+docs: devdocs/
+
+# Support and pricing
+support:
+  type: community
+  response_time: "48 hours"
+  channels:
+    - github-issues
+    - discord
+    
+# Marketplace configuration
+forge:
+  price_cents: 0  # Free/open source
+  trial_days: 0
+  labs_discount_percent: 0

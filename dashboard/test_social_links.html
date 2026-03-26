@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Social Links Extraction</title>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { background: #f5f5f5; padding: 20px; border-radius: 8px; }
+        pre { background: white; padding: 10px; border-radius: 4px; }
+        .link-item { margin: 10px 0; padding: 10px; background: white; border-radius: 4px; }
+        .link-item a { text-decoration: none; color: #333; }
+        .link-item a:hover { color: #007bff; }
+    </style>
+</head>
+<body>
+    <div x-data="testExtraction()">
+        <h3>Testing Social Links Extraction</h3>
+        <div class="test-case">
+            <h4>Test Notes:</h4>
+            <pre x-text="testNotes"></pre>
+            
+            <h4>Extracted Links:</h4>
+            <template x-for="link in extractSocialLinks(testNotes)" :key="link.platform">
+                <div class="link-item">
+                    <i :class="getPlatformIcon(link.platform)"></i>
+                    <a :href="link.url" target="_blank">
+                        <span x-text="link.platform"></span>: <span x-text="link.url"></span>
+                    </a>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+        function testExtraction() {
+            return {
+                testNotes: "Influencer Discovery: youtube • 34,000 followers • 4.0% engagement • 64% brand alignment. Social Media: Youtube: https://youtube.com/@mentalhealthmatters | Instagram: https://instagram.com/wellness_guru | LinkedIn: https://linkedin.com/in/therapist123",
+                
+                extractSocialLinks(notes) {
+                    if (!notes || typeof notes !== 'string') return [];
+                    
+                    // Look for "Social Media:" section in notes
+                    const socialMediaIndex = notes.indexOf('Social Media:');
+                    if (socialMediaIndex === -1) return [];
+                    
+                    const socialSection = notes.substring(socialMediaIndex + 'Social Media:'.length).trim();
+                    
+                    // Parse platform:url pairs - could be separated by | or just single entry
+                    const links = [];
+                    
+                    // First try splitting by | for multiple entries
+                    let parts = socialSection.split('|');
+                    if (parts.length === 1) {
+                        // If no |, might be single entry, try splitting by comma as backup
+                        parts = socialSection.split(',');
+                    }
+                    
+                    for (const part of parts) {
+                        const trimmed = part.trim();
+                        if (trimmed.includes(':')) {
+                            // Look for pattern "Platform: https://..."
+                            const match = trimmed.match(/^([^:]+):\s*(https?:\/\/.+)$/);
+                            if (match) {
+                                const platform = match[1].trim();
+                                const url = match[2].trim();
+                                
+                                if (platform && url) {
+                                    links.push({
+                                        platform: platform.toLowerCase(),
+                                        url: url
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    
+                    return links;
+                },
+                
+                getPlatformIcon(platform) {
+                    const icons = {
+                        'youtube': 'fab fa-youtube text-red-600',
+                        'instagram': 'fab fa-instagram text-pink-600',
+                        'linkedin': 'fab fa-linkedin text-blue-600',
+                        'twitter': 'fab fa-twitter text-sky-500',
+                        'bluesky': 'fas fa-cloud text-blue-400',
+                        'mastodon': 'fab fa-mastodon text-purple-600',
+                        'facebook': 'fab fa-facebook text-blue-700',
+                        'tiktok': 'fab fa-tiktok text-black',
+                        'github': 'fab fa-github text-gray-800'
+                    };
+                    return icons[platform?.toLowerCase()] || 'fas fa-link text-gray-500';
+                }
+            }
+        }
+    </script>
+</body>
+</html>

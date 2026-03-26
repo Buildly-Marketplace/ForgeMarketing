@@ -1,0 +1,732 @@
+[
+  {
+    "timestamp": "2025-10-07T12:29:38.137200",
+    "email": "greg@buildly.io",
+    "name": "Greg",
+    "company": "Buildly",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": "greg@buildly.io",
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:31:18.209300",
+    "email": "greg@buildly.io",
+    "name": "Greg (HTML Test)",
+    "company": "Buildly",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": "greg@buildly.io",
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:36:23.511154",
+    "email": "john.doe@example.com",
+    "name": "John Doe",
+    "company": "Acme Corp",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": "greg@buildly.io",
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:36:31.643396",
+    "email": "jane.smith@startup.com",
+    "name": "Jane Smith",
+    "company": "StartupXYZ",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": "greg@buildly.io",
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:36:42.353104",
+    "email": "bob.wilson@techco.com",
+    "name": "Bob Wilson",
+    "company": "TechCo",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": "greg@buildly.io",
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:36:57.764138",
+    "email": "sarah.jones@devstudio.com",
+    "name": "Sarah Jones",
+    "company": "DevStudio",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": "greg@buildly.io",
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:37:08.935418",
+    "email": "mike.brown@freelance.com",
+    "name": "Mike Brown",
+    "company": "",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": "greg@buildly.io",
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:39:15.749507",
+    "email": "abhi2244tiwari@gmail.com",
+    "name": "Abhinish Tiwari",
+    "company": "abhinish",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:39:21.426306",
+    "email": "abhishekgupta08122000@gmail.com",
+    "name": "Abhishek Gupta",
+    "company": "abc",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:39:27.256475",
+    "email": "anandv@nalashaa.com",
+    "name": "Anand K",
+    "company": "nalashaa",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:39:35.236881",
+    "email": "dipanshukushwaha89@gmail.com",
+    "name": "Dipanshu Kushwaha",
+    "company": "vits",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:39:49.599847",
+    "email": "oghenedesamson01@gmail.com",
+    "name": "Anne",
+    "company": "lkindheart",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:40:01.621391",
+    "email": "arikbiswas98@gmail.com",
+    "name": "ARIK BISWAS",
+    "company": "arik's creative world",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:40:14.813555",
+    "email": "avinash.naganathan@gmail.com",
+    "name": "Avinash",
+    "company": "prod",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:40:27.542944",
+    "email": "dudhatradhika07@gmail.com",
+    "name": "Radhika Admin",
+    "company": "buildly",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:40:35.623482",
+    "email": "dannytsegaye@outlook.com",
+    "name": "DANIEL TSEGAYE",
+    "company": "aries investment",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:40:49.689723",
+    "email": "dbjohns@gmail.com",
+    "name": "David Johnson",
+    "company": "na",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:41:04.901386",
+    "email": "deborahweinswig@coresight.com",
+    "name": "Deborah Weinswig",
+    "company": "coresight",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:41:19.878400",
+    "email": "donna@bluecirclemarketing.com",
+    "name": "Donna Vallario",
+    "company": "blue circle marketing",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:41:26.482530",
+    "email": "douglah2015@gmail.com",
+    "name": "Douglas Nyagechanga",
+    "company": "driver",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:41:39.493586",
+    "email": "m.ejrair@gmail.com",
+    "name": "Ehsan Abedini",
+    "company": "adindeh(ir.aqua)",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:41:45.997862",
+    "email": "eric@lineo.co",
+    "name": "Eric McCasline",
+    "company": "lineo",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:41:58.373679",
+    "email": "fabiodebarrosaraujo@hotmail.com",
+    "name": "Fabio Barros",
+    "company": "jejedi",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:42:09.837068",
+    "email": "franciosifernandes@gmail.com",
+    "name": "franciosifernandes",
+    "company": "franciosi ia",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:42:23.782563",
+    "email": "guimorales.business@gmail.com",
+    "name": "G M",
+    "company": "demo",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:42:32.480831",
+    "email": "gwmayur77@gmail.com",
+    "name": "gw mayur",
+    "company": "-",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:46:15.012821",
+    "email": "hady@epicmetry.com",
+    "name": "Hady Shaikh",
+    "company": "epicmetry",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:46:26.720824",
+    "email": "hendruchrasgado@gmail.com",
+    "name": "Hendrick Rasgado",
+    "company": "cyberguardian labs",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:46:34.778610",
+    "email": "sylvester@particles.co.ke",
+    "name": "Sylvester Omondi",
+    "company": "code particles",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:46:45.786509",
+    "email": "ivy.mwonge@gmail.com",
+    "name": "Ivy Mutiso",
+    "company": "pevyspace",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:46:54.177289",
+    "email": "odenypeter@gmail.com",
+    "name": "Peter Odeny",
+    "company": "pevyspace",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:47:04.039034",
+    "email": "alphadesignerdz@gmail.com",
+    "name": "Jacoub Bechiri",
+    "company": "cartlink",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:47:15.550356",
+    "email": "jason.ethier@energytechnexus.com",
+    "name": "Jason Ethier",
+    "company": "energy tech nexus",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:47:30.553294",
+    "email": "jkraus@prepare4vc.com",
+    "name": "Jason Kraus",
+    "company": "prepare 4 vc",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:47:43.549273",
+    "email": "8kwrapperideas@gmail.com",
+    "name": "Jimmy W",
+    "company": "jimmy",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:47:58.328652",
+    "email": "joelachokor@yahoo.com",
+    "name": "Joel Achokor",
+    "company": "none",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:48:10.529112",
+    "email": "john@tp.com",
+    "name": "John Liber",
+    "company": "transparent path",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:48:23.084721",
+    "email": "jordyjortizcerna@gmail.com",
+    "name": "Jordy Ortiz",
+    "company": "donjordy",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:48:38.004281",
+    "email": "magic@askmerlin.store",
+    "name": "Joy",
+    "company": "ask merlin",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:48:48.124719",
+    "email": "kevin@tucuxi.ai",
+    "name": "Kevin Keller",
+    "company": "tucuxi, inc.",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:48:53.800229",
+    "email": "lance@amplomedia.com",
+    "name": "Lance Johnson",
+    "company": "amplomedia",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:48:59.271083",
+    "email": "marinamishchenko099@gmail.com",
+    "name": "Marina Marina",
+    "company": "mindly",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:49:06.875759",
+    "email": "rehamagency@gmail.com",
+    "name": "md maher",
+    "company": "reham",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:49:20.588720",
+    "email": "mikepokrovsky@icloud.com",
+    "name": "Mike Pokrovsky",
+    "company": "ententee s.r.o.",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:49:29.583433",
+    "email": "mokshadhaagarwal@gmail.com",
+    "name": "MOKSHADA AGARWAL",
+    "company": "mokshada  travels",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:49:39.346100",
+    "email": "aibasov84@inbox.ru",
+    "name": "Murat Aibassov",
+    "company": "llc capital build invest-ns",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:49:47.505604",
+    "email": "8319577278muskan@gmail.com",
+    "name": "Muskan Soni",
+    "company": "smiley'sart hall",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:50:02.649888",
+    "email": "owen@elloe.ai",
+    "name": "Owen Sakawa",
+    "company": "elloe ai",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:50:14.703122",
+    "email": "psiri@dairy.com.ar",
+    "name": "Pablo",
+    "company": "dairy solutions srl",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:50:23.514237",
+    "email": "parth.makwana@mindinventory.com",
+    "name": "Parth Makwana",
+    "company": "mindinventory",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:50:33.583020",
+    "email": "pedro.202412086@unilasalle.edu.br",
+    "name": "pedro rubi",
+    "company": "rubisaas",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:50:40.187255",
+    "email": "rubipedro966@gmail.com",
+    "name": "Pedro Rubi",
+    "company": "rubi",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:50:47.720756",
+    "email": "bio.star1001@gmail.com",
+    "name": "Phillip",
+    "company": "self-employed",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:51:01.937735",
+    "email": "prem.kuchi@gmail.com",
+    "name": "Prem Kuchi",
+    "company": "self",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:51:13.183865",
+    "email": "rahul@expertappdevs.com",
+    "name": "Rahul Kale",
+    "company": "expert app devs",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:51:25.440900",
+    "email": "prakashrahul24@gmail.com",
+    "name": "Rahul Prakash",
+    "company": "edge",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:51:38.281056",
+    "email": "rahul@ajackus.com",
+    "name": "Rahul Jain",
+    "company": "ajackus consulting llp",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:51:52.790266",
+    "email": "rama@charlee.ai",
+    "name": "Ramaswamy Venkateshwaran",
+    "company": "charlee.ai",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:52:05.534152",
+    "email": "ramyavinu513@gmail.com",
+    "name": "Ramya Vinu",
+    "company": "capgemini",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:52:12.665437",
+    "email": "ramya@ascentinfo.solutions",
+    "name": "Ramya Nair",
+    "company": "ascent infosolutions",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:52:20.595657",
+    "email": "rich@tragic.media",
+    "name": "Rich Rudzinski",
+    "company": "tragic",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:52:32.977200",
+    "email": "richardmashia99@gmail.com",
+    "name": "Richard Mashiangako",
+    "company": "kryptonic",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:52:47.735153",
+    "email": "sachin@dizayn.io",
+    "name": "sachin rathor",
+    "company": "dizayn.io",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:52:58.610619",
+    "email": "Gbegnigbegni@gmail.com",
+    "name": "Salifu Muhammed",
+    "company": "muhammed",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:53:12.916767",
+    "email": "sinha.shruti2203@gmail.com",
+    "name": "Shruti Sinha",
+    "company": "vindhya institute of technology and science",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:53:27.562856",
+    "email": "skot@skotcarruth.com",
+    "name": "Skot Carruth",
+    "company": "carruth llc",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:53:34.543563",
+    "email": "taha.nebti@gmail.com",
+    "name": "taha nebti",
+    "company": "tester",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:53:49.325646",
+    "email": "testuser_1755900973791@example.com",
+    "name": "Test User",
+    "company": "testorg_1755900973791",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:54:00.557110",
+    "email": "ranking0556849604@gmail.com",
+    "name": "Thomas Sackey",
+    "company": "wewintogether",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:54:07.732613",
+    "email": "vitinhotiktokgringa1@gmail.com",
+    "name": "Victor Souza",
+    "company": "victor",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:54:16.127115",
+    "email": "waris@brainerhub.com",
+    "name": "Waris Ali",
+    "company": "brainerhub soluitions",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:54:26.661433",
+    "email": "yushant@weareenigma.com",
+    "name": "Yushant Gaur",
+    "company": "enigma digital",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  },
+  {
+    "timestamp": "2025-10-07T12:54:39.839075",
+    "email": "zulkarnaininamdar@gmail.com",
+    "name": "zulkarnain inam",
+    "company": "sitrc",
+    "template_used": "reengagement",
+    "subject": "We miss you at Buildly - Special offer inside",
+    "bcc_email": null,
+    "status": "sent"
+  }
+]

@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6" x-data="contentGenerator()">
+    <!-- Page Header -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">
+            <i class="fas fa-magic text-purple-600 mr-3"></i>AI Content Generation
+        </h1>
+        <p class="text-gray-600">Generate brand-specific content using AI. Select your brand, content type, and customize the parameters below.</p>
+    </div>
+
+    <!-- Generation Form -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <form @submit.prevent="generateContent()">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Left Column -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Brand</label>
+                        <select x-model="form.brand" required 
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="">Select Brand</option>
+                            {% for brand in brands %}
+                            <option value="{{ brand }}">{{ brand.title() }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Content Type</label>
+                        <select x-model="form.type" required 
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="">Select Type</option>
+                            <option value="blog">Blog Post</option>
+                            <option value="social">Social Media Post</option>
+                            <option value="email">Outreach Email</option>
+                        </select>
+                    </div>
+                    
+                    <div x-show="form.type === 'blog'">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Blog Topic</label>
+                        <input type="text" x-model="form.topic" 
+                               placeholder="e.g., 5 Ways AI Improves Development Workflow"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                    
+                    <div x-show="form.type === 'social'">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Platform</label>
+                        <select x-model="form.platform" 
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="twitter">Twitter</option>
+                            <option value="linkedin">LinkedIn</option>
+                            <option value="facebook">Facebook</option>
+                        </select>
+                    </div>
+                    
+                    <div x-show="form.type === 'social'">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Social Content Type</label>
+                        <select x-model="form.social_type" 
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="educational">Educational</option>
+                            <option value="promotional">Promotional</option>
+                            <option value="community">Community</option>
+                            <option value="humor">Humor</option>
+                            <option value="news">News</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Right Column -->
+                <div class="space-y-4">
+                    <div x-show="form.type === 'email'">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Recipient Name</label>
+                        <input type="text" x-model="form.recipient_name" 
+                               placeholder="e.g., Alex Johnson"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                    
+                    <div x-show="form.type === 'email'">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Company</label>
+                        <input type="text" x-model="form.company" 
+                               placeholder="e.g., TechStartup Inc"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                    
+                    <div x-show="form.type === 'email'">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+                        <input type="text" x-model="form.industry" 
+                               placeholder="e.g., SaaS Development"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Target Audience</label>
+                        <input type="text" x-model="form.audience" 
+                               placeholder="e.g., developers and product managers"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                    </div>
+                    
+                    <div class="flex items-center justify-between pt-4">
+                        <button type="submit" :disabled="loading || !form.brand || !form.type"
+                                class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center">
+                            <i class="fas fa-magic mr-2" :class="{'fa-spin': loading}"></i>
+                            <span x-text="loading ? 'Generating...' : 'Generate Content'"></span>
+                        </button>
+                        
+                        <button type="button" @click="clearForm()" 
+                                class="bg-gray-500 text-white px-4 py-3 rounded-lg hover:bg-gray-600 transition-colors">
+                            Clear Form
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Generated Content -->
+    <div x-show="generatedContent" class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold">Generated Content</h2>
+            <button @click="copyToClipboard()" 
+                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                <i class="fas fa-copy mr-2"></i>Copy
+            </button>
+        </div>
+        
+        <div class="space-y-4">
+            <div x-show="generatedContent.title" class="border-b pb-2">
+                <h3 class="text-lg font-medium text-gray-700">Title</h3>
+                <p class="text-gray-900" x-text="generatedContent.title"></p>
+            </div>
+            
+            <div x-show="generatedContent.subject" class="border-b pb-2">
+                <h3 class="text-lg font-medium text-gray-700">Subject</h3>
+                <p class="text-gray-900" x-text="generatedContent.subject"></p>
+            </div>
+            
+            <div>
+                <h3 class="text-lg font-medium text-gray-700 mb-2">Content</h3>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <pre class="whitespace-pre-wrap text-sm text-gray-900" x-text="getContentText()"></pre>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-purple-600" x-text="generatedContent.word_count || generatedContent.character_count || '-'"></div>
+                    <div class="text-sm text-gray-600" x-text="generatedContent.word_count ? 'Words' : 'Characters'"></div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-blue-600" x-text="generatedContent.model_used || '-'"></div>
+                    <div class="text-sm text-gray-600">AI Model</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600" x-text="generatedContent.generated_at ? new Date(generatedContent.generated_at).toLocaleTimeString() : '-'"></div>
+                    <div class="text-sm text-gray-600">Generated</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generation History -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <h2 class="text-xl font-semibold mb-4">Generation History</h2>
+        <div class="space-y-2">
+            <template x-for="item in history" :key="item.id">
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                     @click="loadFromHistory(item)">
+                    <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-medium" x-text="item.brand"></span>
+                            <span class="text-sm bg-purple-100 text-purple-800 px-2 py-1 rounded" x-text="item.type"></span>
+                        </div>
+                        <p class="text-sm text-gray-600 truncate" x-text="item.preview"></p>
+                    </div>
+                    <div class="text-sm text-gray-500" x-text="new Date(item.timestamp).toLocaleString()"></div>
+                </div>
+            </template>
+            
+            <div x-show="history.length === 0" class="text-center py-8 text-gray-500">
+                <i class="fas fa-history text-4xl mb-4"></i>
+                <p>No generation history yet. Start creating content to build your history.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function contentGenerator() {
+    return {
+        form: {
+            brand: '',
+            type: '',
+            topic: '',
+            platform: 'twitter',
+            social_type: 'educational',
+            audience: 'professionals',
+            recipient_name: '',
+            company: '',
+            industry: ''
+        },
+        loading: false,
+        generatedContent: null,
+        history: [],
+        
+        init() {
+            // Load history from localStorage
+            const saved = localStorage.getItem('contentHistory');
+            if (saved) {
+                this.history = JSON.parse(saved);
+            }
+        },
+        
+        async generateContent() {
+            this.loading = true;
+            
+            try {
+                const payload = { ...this.form };
+                
+                // Add email-specific info
+                if (this.form.type === 'email') {
+                    payload.recipient_info = {
+                        name: this.form.recipient_name,
+                        company: this.form.company,
+                        industry: this.form.industry,
+                        pain_points: ['scaling challenges', 'efficiency improvements']
+                    };
+                }
+                
+                const result = await apiCall('/api/generate', {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                
+                if (result.success) {
+                    this.generatedContent = result.content;
+                    showNotification('Content generated successfully!', 'success');
+                    
+                    // Add to history
+                    const historyItem = {
+                        id: Date.now(),
+                        timestamp: new Date().toISOString(),
+                        brand: this.form.brand,
+                        type: this.form.type,
+                        content: result.content,
+                        preview: this.getPreview(result.content)
+                    };
+                    
+                    this.history.unshift(historyItem);
+                    
+                    // Keep only last 20 items
+                    if (this.history.length > 20) {
+                        this.history = this.history.slice(0, 20);
+                    }
+                    
+                    // Save to localStorage
+                    localStorage.setItem('contentHistory', JSON.stringify(this.history));
+                } else {
+                    showNotification(result.error || 'Generation failed', 'error');
+                }
+            } catch (error) {
+                showNotification('Failed to generate content', 'error');
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        getPreview(content) {
+            if (content.title) return content.title;
+            if (content.subject) return content.subject;
+            if (content.content) return content.content.substring(0, 100) + '...';
+            return 'Generated content';
+        },
+        
+        getContentText() {
+            if (!this.generatedContent) return '';
+            if (this.generatedContent.content) return this.generatedContent.content;
+            if (this.generatedContent.body) return this.generatedContent.body;
+            return JSON.stringify(this.generatedContent, null, 2);
+        },
+        
+        clearForm() {
+            this.form = {
+                brand: '',
+                type: '',
+                topic: '',
+                platform: 'twitter',
+                social_type: 'educational',
+                audience: 'professionals',
+                recipient_name: '',
+                company: '',
+                industry: ''
+            };
+            this.generatedContent = null;
+        },
+        
+        loadFromHistory(item) {
+            this.generatedContent = item.content;
+            showNotification('Content loaded from history', 'info');
+        },
+        
+        async copyToClipboard() {
+            const text = this.getContentText();
+            try {
+                await navigator.clipboard.writeText(text);
+                showNotification('Content copied to clipboard!', 'success');
+            } catch (error) {
+                showNotification('Failed to copy content', 'error');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

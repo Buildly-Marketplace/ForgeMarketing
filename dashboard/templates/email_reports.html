@@ -1,0 +1,592 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6" x-data="emailReports()">
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">📧 Email Campaign Reports</h1>
+                <p class="text-gray-600 mt-2">Monitor email campaigns, delivery status, and performance metrics</p>
+            </div>
+            <div class="flex space-x-2">
+                <button @click="refreshData()" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+                <button @click="showResendModal = true" 
+                        class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-paper-plane mr-2"></i>Resend Emails
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                    <i class="fas fa-envelope text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Total Emails</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="stats.summary?.total_emails || 0"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-green-100 text-green-600">
+                    <i class="fas fa-check-circle text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Sent Successfully</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="stats.summary?.sent_emails || 0"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-red-100 text-red-600">
+                    <i class="fas fa-exclamation-triangle text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Failed</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="stats.summary?.failed_emails || 0"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+            <div class="flex items-center">
+                <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                    <i class="fas fa-percentage text-xl"></i>
+                </div>
+                <div class="ml-4">
+                    <p class="text-sm font-medium text-gray-600">Success Rate</p>
+                    <p class="text-2xl font-bold text-gray-900" x-text="(stats.summary?.success_rate || 0) + '%'"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters and Search -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Days</label>
+                <select x-model="filters.days" @change="loadLogs()" 
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                <select x-model="filters.status" @change="loadLogs()" 
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                    <option value="all">All</option>
+                    <option value="sent">Sent</option>
+                    <option value="failed">Failed</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Service</label>
+                <select x-model="filters.service" @change="loadLogs()" 
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                    <option value="all">All Services</option>
+                    <option value="mailersend">MailerSend</option>
+                    <option value="brevo">Brevo</option>
+                    <option value="brevo_smtp">Brevo SMTP</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Search</label>
+                <input type="text" x-model="filters.search" @input="loadLogs()" 
+                       placeholder="Email, name, company..."
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Logs Table -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-800">Email Logs</h2>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Timestamp
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Recipient
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Subject
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Service
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Message ID
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="log in logs.data?.logs || []" :key="log.timestamp">
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <span x-text="formatDateTime(log.timestamp)"></span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-gray-900" x-text="log.name"></div>
+                                <div class="text-sm text-gray-500" x-text="log.email"></div>
+                                <div class="text-xs text-gray-400" x-text="log.company"></div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-sm text-gray-900" x-text="log.subject"></div>
+                                <div class="text-xs text-gray-500" x-text="'Template: ' + (log.template_used || 'N/A')"></div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span :class="log.status === 'sent' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" 
+                                      class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                    <i :class="log.status === 'sent' ? 'fas fa-check' : 'fas fa-times'" class="mr-1"></i>
+                                    <span x-text="log.status"></span>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <span x-text="log.service_used || 'N/A'" class="text-xs bg-gray-100 px-2 py-1 rounded"></span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500">
+                                <span x-text="log.message_id || 'N/A'"></span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <template x-if="log.status === 'failed'">
+                                    <button @click="resendSingleEmail(log.email)" 
+                                            class="text-blue-600 hover:text-blue-900 mr-2">
+                                        <i class="fas fa-redo text-xs"></i> Resend
+                                    </button>
+                                </template>
+                                <template x-if="log.message_id && log.message_id !== 'N/A' && log.service_used === 'mailersend'">
+                                    <button @click="checkDeliveryStatus(log.message_id)" 
+                                            class="text-green-600 hover:text-green-900 mr-2">
+                                        <i class="fas fa-truck text-xs"></i> Status
+                                    </button>
+                                </template>
+                                <button @click="viewMessageDetails(log)" 
+                                        class="text-gray-600 hover:text-gray-900">
+                                    <i class="fas fa-eye text-xs"></i> Details
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6" x-show="logs.data?.pagination">
+            <div class="flex-1 flex justify-between sm:hidden">
+                <button @click="previousPage()" :disabled="!canGoPrevious()" 
+                        class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
+                    Previous
+                </button>
+                <button @click="nextPage()" :disabled="!canGoNext()" 
+                        class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50">
+                    Next
+                </button>
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-sm text-gray-700">
+                        Showing <span x-text="logs.data?.pagination?.offset + 1"></span> to 
+                        <span x-text="Math.min(logs.data?.pagination?.offset + logs.data?.pagination?.limit, logs.data?.pagination?.total)"></span> of 
+                        <span x-text="logs.data?.pagination?.total"></span> results
+                    </p>
+                </div>
+                <div>
+                    <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                        <button @click="previousPage()" :disabled="!canGoPrevious()" 
+                                class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <button @click="nextPage()" :disabled="!canGoNext()" 
+                                class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Performance Chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Service Performance</h3>
+            <div class="space-y-4">
+                <template x-for="[service, data] in Object.entries(stats.service_breakdown || {})" :key="service">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 rounded-full" 
+                                 :class="service === 'mailersend' ? 'bg-blue-500' : service === 'brevo' ? 'bg-green-500' : 'bg-gray-500'"></div>
+                            <span class="text-sm font-medium text-gray-700" x-text="service"></span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm font-semibold text-gray-900" x-text="data.total + ' emails'"></div>
+                            <div class="text-xs text-gray-500" 
+                                 x-text="data.sent + ' sent, ' + data.failed + ' failed'"></div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Template Usage</h3>
+            <div class="space-y-4">
+                <template x-for="[template, count] in Object.entries(stats.template_usage || {})" :key="template">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-gray-700" x-text="template"></span>
+                        <span class="text-sm font-semibold text-gray-900" x-text="count + ' emails'"></span>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resend Modal -->
+    <div x-show="showResendModal" x-transition class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Resend Emails</h3>
+                    <button @click="showResendModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <form @submit.prevent="resendEmails()">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Recipients (one per line)</label>
+                        <textarea x-model="resendForm.recipients" rows="4" 
+                                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500"
+                                  placeholder="email1@example.com&#10;email2@example.com"></textarea>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Template</label>
+                        <select x-model="resendForm.template" 
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500">
+                            <option value="reengagement">Re-engagement</option>
+                            <option value="welcome">Welcome</option>
+                            <option value="followup">Follow-up</option>
+                        </select>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" @click="showResendModal = false" 
+                                class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                            Cancel
+                        </button>
+                        <button type="submit" :disabled="resendForm.sending"
+                                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50">
+                            <span x-show="!resendForm.sending">Send Emails</span>
+                            <span x-show="resendForm.sending">Sending...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Message Details Modal -->
+    <div x-show="showDetailsModal" x-transition class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-2/3 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">Message Details</h3>
+                    <button @click="showDetailsModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div x-show="selectedMessage" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Recipient</label>
+                            <p class="text-sm text-gray-900" x-text="selectedMessage?.name + ' (' + selectedMessage?.email + ')'"></p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Company</label>
+                            <p class="text-sm text-gray-900" x-text="selectedMessage?.company"></p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Status</label>
+                            <p class="text-sm" :class="selectedMessage?.status === 'sent' ? 'text-green-600' : 'text-red-600'" 
+                               x-text="selectedMessage?.status"></p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Service Used</label>
+                            <p class="text-sm text-gray-900" x-text="selectedMessage?.service_used || 'N/A'"></p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Message ID</label>
+                            <p class="text-sm font-mono text-gray-600" x-text="selectedMessage?.message_id || 'N/A'"></p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Template</label>
+                            <p class="text-sm text-gray-900" x-text="selectedMessage?.template_used"></p>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Subject</label>
+                        <p class="text-sm text-gray-900" x-text="selectedMessage?.subject"></p>
+                    </div>
+                    
+                    <div x-show="selectedMessage?.error">
+                        <label class="text-sm font-medium text-gray-700">Error Details</label>
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                            <p class="text-sm text-red-800" x-text="selectedMessage?.error"></p>
+                            <p class="text-xs text-red-600 mt-1" x-text="'Error Type: ' + selectedMessage?.error_type"></p>
+                        </div>
+                    </div>
+                    
+                    <div x-show="selectedMessage?.delivery_details">
+                        <label class="text-sm font-medium text-gray-700">Delivery Information</label>
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <div class="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                    <span class="font-medium">Email Length:</span>
+                                    <span x-text="selectedMessage?.delivery_details?.email_length + ' characters'"></span>
+                                </div>
+                                <div>
+                                    <span class="font-medium">Format:</span>
+                                    <span x-text="selectedMessage?.delivery_details?.is_html ? 'HTML' : 'Plain Text'"></span>
+                                </div>
+                                <div>
+                                    <span class="font-medium">BCC Used:</span>
+                                    <span x-text="selectedMessage?.delivery_details?.has_bcc ? 'Yes' : 'No'"></span>
+                                </div>
+                                <div x-show="selectedMessage?.message_id && selectedMessage?.message_id !== 'N/A' && selectedMessage?.service_used === 'mailersend'">
+                                    <button @click="checkDeliveryStatus(selectedMessage.message_id)" 
+                                            class="text-blue-600 hover:text-blue-800 text-xs">
+                                        <i class="fas fa-sync-alt mr-1"></i>Check MailerSend Status
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function emailReports() {
+    return {
+        logs: {},
+        stats: {},
+        filters: {
+            days: 7,
+            status: 'all',
+            service: 'all',
+            search: ''
+        },
+        pagination: {
+            offset: 0,
+            limit: 50
+        },
+        showResendModal: false,
+        showDetailsModal: false,
+        selectedMessage: null,
+        resendForm: {
+            recipients: '',
+            template: 'reengagement',
+            sending: false
+        },
+        
+        async init() {
+            await this.loadStats();
+            await this.loadLogs();
+        },
+        
+        async loadStats() {
+            try {
+                const response = await fetch(`/api/email-reports/stats?days=${this.filters.days}`);
+                const result = await response.json();
+                if (result.success) {
+                    this.stats = result.data;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        },
+        
+        async loadLogs() {
+            try {
+                const params = new URLSearchParams({
+                    days: this.filters.days,
+                    status: this.filters.status,
+                    service: this.filters.service,
+                    search: this.filters.search,
+                    limit: this.pagination.limit,
+                    offset: this.pagination.offset
+                });
+                
+                const response = await fetch(`/api/email-reports/logs?${params}`);
+                const result = await response.json();
+                if (result.success) {
+                    this.logs = result;
+                }
+            } catch (error) {
+                console.error('Error loading logs:', error);
+            }
+        },
+        
+        async refreshData() {
+            await Promise.all([this.loadStats(), this.loadLogs()]);
+        },
+        
+        formatDateTime(timestamp) {
+            return new Date(timestamp).toLocaleString();
+        },
+        
+        async resendSingleEmail(email) {
+            try {
+                const response = await fetch('/api/email-reports/resend', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        recipients: [email],
+                        template: 'reengagement'
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Email resent successfully!');
+                    await this.refreshData();
+                } else {
+                    alert('Error resending email: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error resending email:', error);
+                alert('Error resending email');
+            }
+        },
+        
+        async resendEmails() {
+            this.resendForm.sending = true;
+            try {
+                const recipients = this.resendForm.recipients.split('\n')
+                    .map(email => email.trim())
+                    .filter(email => email);
+                
+                const response = await fetch('/api/email-reports/resend', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        recipients: recipients,
+                        template: this.resendForm.template
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Successfully sent ${recipients.length} emails!`);
+                    this.showResendModal = false;
+                    this.resendForm.recipients = '';
+                    await this.refreshData();
+                } else {
+                    alert('Error sending emails: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error sending emails:', error);
+                alert('Error sending emails');
+            } finally {
+                this.resendForm.sending = false;
+            }
+        },
+        
+        async checkDeliveryStatus(messageId) {
+            try {
+                const response = await fetch(`/api/email-reports/mailersend-status/${messageId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const status = result.data;
+                    let statusMessage = `Status: ${status.status}\n`;
+                    statusMessage += `Delivered: ${status.delivery_details.delivered_at ? 'Yes' : 'No'}\n`;
+                    statusMessage += `Opens: ${status.stats.opens}\n`;
+                    statusMessage += `Clicks: ${status.stats.clicks}\n`;
+                    if (status.delivery_details.bounced_at) {
+                        statusMessage += `Bounced: ${status.delivery_details.bounced_at}\n`;
+                    }
+                    if (status.delivery_details.opened_at) {
+                        statusMessage += `First Opened: ${new Date(status.delivery_details.opened_at).toLocaleString()}\n`;
+                    }
+                    if (status.delivery_details.clicked_at) {
+                        statusMessage += `First Clicked: ${new Date(status.delivery_details.clicked_at).toLocaleString()}\n`;
+                    }
+                    
+                    alert(statusMessage);
+                } else {
+                    alert('Error getting delivery status: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error checking delivery status:', error);
+                alert('Error checking delivery status');
+            }
+        },
+        
+        viewMessageDetails(message) {
+            this.selectedMessage = message;
+            this.showDetailsModal = true;
+        },
+        
+        canGoPrevious() {
+            return this.pagination.offset > 0;
+        },
+        
+        canGoNext() {
+            return this.logs.data?.pagination?.has_more;
+        },
+        
+        previousPage() {
+            if (this.canGoPrevious()) {
+                this.pagination.offset = Math.max(0, this.pagination.offset - this.pagination.limit);
+                this.loadLogs();
+            }
+        },
+        
+        nextPage() {
+            if (this.canGoNext()) {
+                this.pagination.offset += this.pagination.limit;
+                this.loadLogs();
+            }
+        }
+    }
+}
+</script>
+{% endblock %}

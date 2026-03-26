@@ -1,0 +1,6 @@
+email,name,company,account_type,last_login,signup_date,features_used,subscription_status,usage_level,custom_field_1,custom_field_2
+john.doe@example.com,John Doe,Acme Corp,Premium,2024-09-15,2024-01-10,API Management,Active,High,VIP Customer,Enterprise Features
+jane.smith@startup.com,Jane Smith,StartupXYZ,Free,2024-08-20,2024-02-15,Core Platform,Active,Medium,Beta Tester,Mobile App
+bob.wilson@techco.com,Bob Wilson,TechCo,Business,Never,2024-03-01,Dashboard Only,Inactive,Low,Trial User,Needs Follow-up
+sarah.jones@devstudio.com,Sarah Jones,DevStudio,Enterprise,2024-09-30,2023-12-05,Full Suite,Active,Very High,Power User,Integration Specialist
+mike.brown@freelance.com,Mike Brown,,Free,2024-07-10,2024-05-20,Basic Tools,Active,Low,Individual Dev,Learning

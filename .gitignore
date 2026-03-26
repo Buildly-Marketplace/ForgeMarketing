@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Databases (runtime data)
+*.db
+
+# Logs
+*.log
+logs/
+automation/logs/
+marketing/buildly_outreach_data/logs/
+
+# Flask instance folder
+instance/
+
+# Generated/runtime data
+email_audit_logs/
+email_demos/
+data/analytics/
+data/reports/
+reports/
+
+# Test artifacts
+email_test_results_*.json

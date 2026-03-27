@@ -19,8 +19,8 @@
 
 ```bash
 # Clone and navigate
-git clone https://github.com/buildlyio/marketing.git
-cd marketing
+git clone https://github.com/Buildly-Marketplace/ForgeMarketing.git
+cd ForgeMarketing
 
 # Setup (one-time)
 ./ops/startup.sh setup
@@ -76,17 +76,6 @@ docker-compose -f ops/docker-compose.yml up -d
 helm install forgemark ops/helm/forgemark/ -n forgemark --create-namespace
 ```
 
-## 📚 Documentation
-
-All documentation is in **`devdocs/`**:
-
-- **[devdocs/SETUP.md](devdocs/SETUP.md)** — Installation & configuration
-- **[devdocs/OPERATIONS.md](devdocs/OPERATIONS.md)** — Docker, K8s, GitHub Pages
-- **[devdocs/REFERENCE.md](devdocs/REFERENCE.md)** — API endpoints & config
-- **[devdocs/RELEASE_NOTES.md](devdocs/RELEASE_NOTES.md)** — What's new
-- **[ops/README.md](ops/README.md)** — Deployment scripts explained
-- **[tests/README.md](tests/README.md)** — Testing & utilities
-
 ## 🧪 Testing
 
 ### Smoke Tests (No pytest needed)
@@ -103,7 +92,7 @@ pytest tests/smoke/ tests/crud/ -v
 ## 🛠️ File Organization
 
 ```
-marketing/
+ForgeMarketing/
 ├── ops/                         ✓ Deployment & setup
 │   ├── startup.sh               Main setup/start/stop/restart script ⭐
 │   ├── Dockerfile               Docker image
@@ -223,7 +212,7 @@ See [LICENSE.md](LICENSE.md) for details.
 
 ## 🤝 Support
 
-- **Community:** [GitHub Issues](https://github.com/buildlyio/marketing/issues)
+- **Community:** [GitHub Issues](https://github.com/Buildly-Marketplace/ForgeMarketing/issues)
 - **Discord:** [Buildly Community](https://discord.gg/buildly)
 - **Documentation:** See [SUPPORT.md](SUPPORT.md)
 

@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """
-Op        # Configuration from environment
-        self.ollama_host = os.getenv("OLLAMA_HOST", "http://pop-os2.local:11434")
-        self.ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
-        self.blog_enabled = os.getenv("BLOG_ENABLED", "true").lower() == "true"Build Training Blog Article Generator
+OpenBuild Training Blog Article Generator
 Connects to Ollama service to generate daily technical articles
 """
 
@@ -31,7 +28,7 @@ logger = logging.getLogger(__name__)
 class BlogArticleGenerator:
     def __init__(self):
         # Configuration from environment
-        self.ollama_host = os.getenv("OLLAMA_HOST", "http://pop-os2.local:11434")
+        self.ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
         self.ollama_model = os.getenv("OLLAMA_MODEL", "llama3.2:1b")
         self.blog_enabled = os.getenv("BLOG_ENABLED", "true").lower() == "true"
         

@@ -160,8 +160,23 @@ except ImportError as e:
 app = Flask(__name__)
 app.secret_key = os.getenv('DASHBOARD_SECRET_KEY', 'marketing-automation-dashboard-2025')
 
-# Database configuration - consolidated in data/ folder
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data/marketing_dashboard.db'
+# Database configuration
+# Supports DATABASE_URL env var for PostgreSQL/MySQL, falls back to local SQLite
+_database_url = os.getenv('DATABASE_URL')
+if _database_url:
+    # Fix Heroku-style postgres:// -> postgresql://
+    if _database_url.startswith('postgres://'):
+        _database_url = _database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = _database_url
+    # Connection pool settings for remote databases
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_size': 10,
+        'pool_recycle': 300,
+        'pool_pre_ping': True,
+    }
+else:
+    _db_path = os.path.join(project_root, 'data', 'marketing_dashboard.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + _db_path
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
@@ -202,117 +217,298 @@ def check_onboarding():
     if request.path == '/onboarding':
         return
     
-    # Check if system is configured
-    if not hasattr(app, 'onboarding_checked'):
-        with app.app_context():
-            try:
-                from dashboard.models import Brand, SystemConfig
-                
-                # Check if we have any brands
-                brand_count = Brand.query.count()
-                
-                # Check if system config exists
-                try:
-                    system_config = SystemConfig.query.first()
-                    has_config = system_config is not None
-                except:
-                    has_config = False
-                
-                # If no brands or no config, redirect to onboarding
-                if brand_count == 0 or not has_config:
-                    app.onboarding_needed = True
-                else:
-                    app.onboarding_needed = False
-                    
-                app.onboarding_checked = True
-            except Exception as e:
-                print(f"⚠️  Error checking onboarding status: {e}")
-                app.onboarding_needed = False
-                app.onboarding_checked = True
+    # Re-check every request until onboarding is confirmed complete
+    if getattr(app, 'onboarding_complete', False):
+        return
     
-    # Redirect to onboarding if needed
-    if hasattr(app, 'onboarding_needed') and app.onboarding_needed:
-        if request.path != '/onboarding':
+    try:
+        from dashboard.models import Brand, SystemConfig
+        brand_count = Brand.query.count()
+        has_config = SystemConfig.query.first() is not None
+        
+        if brand_count == 0 or not has_config:
             return redirect('/onboarding')
+        else:
+            app.onboarding_complete = True
+    except Exception as e:
+        # Database not ready yet — let the request through rather than
+        # permanently caching a wrong answer
+        print(f"⚠️  Error checking onboarding status: {e}")
 
 # Onboarding route
 @app.route('/onboarding')
 def onboarding():
     """First-time setup wizard"""
-    return render_template('onboarding.html')
+    return render_template('setup.html')
 
-# Onboarding API endpoint
+# Onboarding discovery endpoint
+@app.route('/api/onboarding/discover', methods=['POST'])
+def discover_onboarding():
+    """Scrape a website to discover brand information"""
+    try:
+        data = request.json or {}
+        website_url = data.get('website_url', '').strip()
+        if not website_url:
+            return jsonify({'error': 'website_url is required'}), 400
+
+        from dashboard.brand_setup import discover_brand
+        result = discover_brand(website_url)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Onboarding completion endpoint
 @app.route('/api/onboarding/complete', methods=['POST'])
 def complete_onboarding():
-    """Complete onboarding and save configuration"""
+    """Complete onboarding — create brand, settings, and system config"""
     try:
-        config = request.json
-        
-        with app.app_context():
-            from dashboard.models import Brand, SystemConfig, BrandEmailConfig
-            
-            # Create system config
-            system_config = SystemConfig(
-                config_key='system',
-                config_value=json.dumps({
-                    'admin_email': config['system']['admin_email'],
-                    'company_name': config['system']['company_name'],
-                    'timezone': config['system']['timezone'],
-                    'setup_completed': True,
-                    'setup_date': datetime.now().isoformat()
-                })
-            )
-            db.session.add(system_config)
-            
-            # Save email config if provided
-            if not config['email'].get('skip'):
-                email_config = SystemConfig(
-                    config_key='email',
-                    config_value=json.dumps(config['email'])
-                )
-                db.session.add(email_config)
-            
-            # Create brands
-            for brand_data in config['brands']:
-                brand = Brand(
-                    name=brand_data['name'],
-                    display_name=brand_data['displayName'],
-                    website_url=brand_data['website'],
-                    description=brand_data.get('description', ''),
-                    is_active=True
-                )
-                db.session.add(brand)
-                db.session.flush()  # Get the brand ID
-                
-                # Create default email config for each brand if email is configured
-                if not config['email'].get('skip'):
-                    provider = config['email']['provider']
-                    brand_email_config = BrandEmailConfig(
-                        brand_id=brand.id,
-                        provider=provider,
-                        from_email=config['system']['admin_email'],
-                        from_name=brand_data['displayName'],
-                        is_primary=True
-                    )
-                    db.session.add(brand_email_config)
-            
-            db.session.commit()
-            
-            # Mark onboarding as complete
-            app.onboarding_needed = False
-            
-            return jsonify({
-                'success': True,
-                'message': 'Setup completed successfully!'
-            })
-            
+        data = request.json or {}
+        display_name = data.get('display_name', '').strip()
+        website_url = data.get('website_url', '').strip()
+        admin_email = data.get('admin_email', '').strip()
+        description = data.get('description', '').strip()
+        logo_url = data.get('logo_url', '').strip()
+        social_links = data.get('social_links', {})
+        theme_color = data.get('theme_color', '')
+
+        if not display_name:
+            return jsonify({'error': 'display_name is required'}), 400
+
+        from dashboard.models import Brand, SystemConfig, BrandSettings
+        from dashboard.brand_setup import suggest_brand_name
+
+        # Generate slug
+        name = suggest_brand_name(display_name)
+
+        # Create brand
+        brand = Brand(
+            name=name,
+            display_name=display_name,
+            description=description,
+            logo_url=logo_url,
+            website_url=website_url,
+            is_active=True,
+        )
+        db.session.add(brand)
+        db.session.flush()  # get brand.id
+
+        # Create default settings for the brand
+        settings = BrandSettings(brand_id=brand.id)
+        db.session.add(settings)
+
+        # Store social links as advanced settings
+        if social_links:
+            settings.set_advanced_settings({'social_links': social_links, 'theme_color': theme_color})
+
+        # Create system config entries
+        sys_cfg = SystemConfig(
+            key='admin_email',
+            value=admin_email,
+            category='system',
+            description='Primary admin email'
+        )
+        db.session.add(sys_cfg)
+
+        setup_cfg = SystemConfig(
+            key='setup_completed',
+            value=json.dumps({'completed': True, 'date': datetime.now().isoformat()}),
+            category='system',
+            description='Onboarding completion record'
+        )
+        db.session.add(setup_cfg)
+
+        db.session.commit()
+
+        # Clear cached onboarding flag
+        app.onboarding_complete = True
+
+        return jsonify({
+            'success': True,
+            'message': 'Setup completed successfully!',
+            'brand': brand.to_dict()
+        })
+
     except Exception as e:
         db.session.rollback()
         print(f"❌ Onboarding error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/onboarding/save-email', methods=['POST'])
+def onboarding_save_email():
+    """Save email provider config during onboarding"""
+    try:
+        data = request.json or {}
+        brand_name = data.get('brand_name', '').strip()
+        provider = data.get('provider', '').strip()
+        if not brand_name or not provider:
+            return jsonify({'error': 'brand_name and provider are required'}), 400
+
+        from dashboard.models import Brand, BrandEmailConfig
+
+        brand = Brand.query.filter_by(name=brand_name).first()
+        if not brand:
+            return jsonify({'error': 'Brand not found'}), 404
+
+        email_cfg = BrandEmailConfig(
+            brand_id=brand.id,
+            provider=provider,
+            from_email=data.get('from_email', ''),
+            from_name=data.get('from_name', brand.display_name),
+            is_primary=True
+        )
+
+        if provider == 'smtp':
+            email_cfg.smtp_host = data.get('smtp_host', '')
+            email_cfg.smtp_port = data.get('smtp_port', 587)
+            email_cfg.smtp_user = data.get('smtp_user', '')
+            email_cfg.smtp_password = data.get('smtp_password', '')
+        else:
+            email_cfg.api_key = data.get('api_key', '')
+
+        db.session.add(email_cfg)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Email configuration saved'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/onboarding/test-email', methods=['POST'])
+def onboarding_test_email():
+    """Quick connectivity test for email provider"""
+    data = request.json or {}
+    provider = data.get('provider', '')
+    api_key = data.get('api_key', '')
+    if not provider or not api_key:
+        return jsonify({'success': False, 'error': 'Provider and API key required'})
+
+    try:
+        import requests as ext_requests
+        test_urls = {
+            'mailersend': 'https://api.mailersend.com/v1/domains',
+            'brevo': 'https://api.brevo.com/v3/account',
+            'sendgrid': 'https://api.sendgrid.com/v3/user/profile',
+            'mailgun': 'https://api.mailgun.net/v3/domains'
+        }
+        url = test_urls.get(provider)
+        if not url:
+            return jsonify({'success': False, 'error': f'Unknown provider: {provider}'})
+
+        headers = {}
+        auth = None
+        if provider == 'mailersend':
+            headers['Authorization'] = f'Bearer {api_key}'
+        elif provider == 'brevo':
+            headers['api-key'] = api_key
+        elif provider == 'sendgrid':
+            headers['Authorization'] = f'Bearer {api_key}'
+        elif provider == 'mailgun':
+            auth = ('api', api_key)
+
+        resp = ext_requests.get(url, headers=headers, auth=auth, timeout=10)
+        if resp.status_code < 300:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': f'API returned {resp.status_code}'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+
+@app.route('/api/onboarding/save-social', methods=['POST'])
+def onboarding_save_social():
+    """Save social media credentials during onboarding"""
+    try:
+        data = request.json or {}
+        brand_name = data.get('brand_name', '').strip()
+        credentials = data.get('credentials', {})
+        if not brand_name:
+            return jsonify({'error': 'brand_name is required'}), 400
+
+        from dashboard.models import Brand, BrandAPICredential
+
+        brand = Brand.query.filter_by(name=brand_name).first()
+        if not brand:
+            return jsonify({'error': 'Brand not found'}), 404
+
+        for service, creds in credentials.items():
+            cred_type = 'oauth' if 'client_id' in creds else 'api_key'
+            api_cred = BrandAPICredential(
+                brand_id=brand.id,
+                service=service,
+                credential_type=cred_type,
+                credentials=json.dumps(creds),
+                is_active=True
+            )
+            db.session.add(api_cred)
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Saved {len(credentials)} social account(s)'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/onboarding/test-ai', methods=['POST'])
+def onboarding_test_ai():
+    """Test AI provider connection and list available models"""
+    data = request.json or {}
+    provider = data.get('provider', '')
+    url = data.get('url', '').strip().rstrip('/')
+
+    if provider == 'ollama':
+        if not url:
+            url = 'http://localhost:11434'
+        try:
+            import requests as ext_requests
+            resp = ext_requests.get(f'{url}/api/tags', timeout=10)
+            if resp.status_code == 200:
+                models = resp.json().get('models', [])
+                return jsonify({'success': True, 'models': [{'name': m.get('name', '')} for m in models]})
+            else:
+                return jsonify({'success': False, 'error': f'Ollama returned {resp.status_code}'})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)})
+
+    return jsonify({'success': False, 'error': f'Unknown AI provider: {provider}'})
+
+
+@app.route('/api/onboarding/save-ai', methods=['POST'])
+def onboarding_save_ai():
+    """Save AI configuration during onboarding"""
+    try:
+        data = request.json or {}
+        provider = data.get('provider', '')
+        if not provider:
+            return jsonify({'error': 'provider is required'}), 400
+
+        from dashboard.models import SystemConfig
+
+        configs = [
+            ('ai_provider', provider, 'ai', 'AI provider type'),
+            ('ai_model', data.get('model', ''), 'ai', 'Default AI model'),
+        ]
+
+        if provider == 'ollama':
+            configs.append(('ai_ollama_url', data.get('url', 'http://localhost:11434'), 'ai', 'Ollama server URL'))
+        elif provider == 'openai':
+            configs.append(('ai_openai_key', data.get('api_key', ''), 'ai', 'OpenAI API key'))
+
+        for key, value, category, desc in configs:
+            existing = SystemConfig.query.filter_by(key=key).first()
+            if existing:
+                existing.value = value
+            else:
+                cfg = SystemConfig(key=key, value=value, category=category, description=desc,
+                                   is_secret=(key == 'ai_openai_key'))
+                db.session.add(cfg)
+
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'AI configuration saved'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # Admin UI route
 @app.route('/admin/brands')
@@ -325,6 +521,11 @@ def admin_brands():
 def marketing_calendar_ui():
     """Marketing calendar dashboard interface"""
     return render_template('marketing_calendar.html')
+
+@app.route('/content-calendar')
+def content_calendar_ui():
+    """Content calendar with full CRUD and AI generation"""
+    return render_template('content_calendar.html')
 
 # Development configuration - disable caching for easier testing
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -461,7 +662,7 @@ class MarketingDashboard:
             self.config = {
                 'dashboard': {
                     'title': 'Marketing Automation Dashboard',
-                    'port': 5000,
+                    'port': 8002,
                     'host': '0.0.0.0'
                 },
                 'features': {
@@ -1044,7 +1245,8 @@ class MarketingDashboard:
                 if self.test_ai_connection():
                     return {'success': True, 'message': 'AI service connection successful'}
                 else:
-                    return {'success': False, 'error': 'Cannot connect to AI service at pop-os2.local:11434'}
+                    ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+                    return {'success': False, 'error': f'Cannot connect to AI service at {ollama_host}'}
             
             # Mock connection test for social platforms - in production, make actual API calls
             elif platform == 'twitter':
@@ -5118,9 +5320,9 @@ def api_add_touch(contact_id):
 
 if __name__ == '__main__':
     # Get configuration
-    host = dashboard.config['dashboard'].get('host', '0.0.0.0')
-    port = dashboard.config['dashboard'].get('port', 5003)
-    debug = False  # Set to False in production
+    host = os.getenv('HOST', dashboard.config['dashboard'].get('host', '0.0.0.0'))
+    port = int(os.getenv('PORT', dashboard.config['dashboard'].get('port', 8002)))
+    debug = os.getenv('DEBUG', 'false').lower() == 'true'
     
     print(f"🚀 Starting Marketing Automation Dashboard")
     print(f"📊 URL: http://{host}:{port}")

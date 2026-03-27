@@ -1,0 +1,103 @@
+# Social Media Configuration
+# Platform settings and brand-specific configurations
+
+general:
+  platform_adaptations:
+    twitter:
+      max_length: 280
+    linkedin:
+      max_length: 3000
+    mastodon:
+      max_length: 500
+    bluesky:
+      max_length: 300
+    instagram:
+      max_length: 2200
+
+  # Posting schedule (UTC)
+  default_schedule:
+    - "09:00"
+    - "12:00"
+    - "15:00"
+    - "18:00"
+
+  rate_limits:
+    twitter:
+      posts_per_day: 5
+      min_interval_minutes: 60
+    linkedin:
+      posts_per_day: 3
+      min_interval_minutes: 120
+    mastodon:
+      posts_per_day: 5
+      min_interval_minutes: 60
+    bluesky:
+      posts_per_day: 5
+      min_interval_minutes: 60
+
+# Brand-specific platform configurations
+# API keys should be set via environment variables (see .env.example)
+brand_platforms:
+  buildly:
+    active_platforms:
+      - twitter
+      - linkedin
+      - mastodon
+      - bluesky
+    content_themes:
+      - low-code automation
+      - developer productivity
+      - microservices architecture
+      - API-first development
+
+  foundry:
+    active_platforms:
+      - twitter
+      - linkedin
+    content_themes:
+      - startup accelerator
+      - entrepreneur resources
+      - MVP development
+      - startup funding
+
+  openbuild:
+    active_platforms:
+      - twitter
+      - linkedin
+      - mastodon
+      - bluesky
+    content_themes:
+      - open source development
+      - developer training
+      - community building
+      - technical education
+
+  radical:
+    active_platforms:
+      - twitter
+      - instagram
+    content_themes:
+      - digital therapy
+      - mental wellness technology
+      - therapeutic innovation
+
+  oregonsoftware:
+    active_platforms:
+      - twitter
+      - linkedin
+    content_themes:
+      - software development
+      - Portland tech scene
+      - consulting services
+
+# Mastodon account mappings
+mastodon_accounts:
+  BUILDLY:
+    instance_env: MASTODON_BUILDLY_INSTANCE
+    token_env: MASTODON_BUILDLY_TOKEN
+  CLOUDNATIVE:
+    instance_env: MASTODON_CLOUDNATIVE_INSTANCE
+    token_env: MASTODON_CLOUDNATIVE_TOKEN
+  OPENBUILD:
+    instance_env: MASTODON_OPENBUILD_INSTANCE
+    token_env: MASTODON_OPENBUILD_TOKEN

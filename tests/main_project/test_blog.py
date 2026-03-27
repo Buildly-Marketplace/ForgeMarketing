@@ -20,7 +20,7 @@ async def test_blog_generation():
         print("🔧 Testing Blog Post Generation with Debugging")
         print("=" * 60)
         
-        generator = AIContentGenerator("http://pop-os2.local:11434")
+        generator = AIContentGenerator()
         print(f"✅ Generator initialized")
         print(f"✅ Brand configs loaded: {list(generator.brand_configs.keys())}")
         

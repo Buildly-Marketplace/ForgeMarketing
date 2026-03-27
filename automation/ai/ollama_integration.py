@@ -1,19 +1,24 @@
 # Ollama AI Integration for Marketing Automation
-# Integrates with local Ollama instance at pop-os2.local:11434
+# Integrates with Ollama instance (configured via OLLAMA_HOST env var)
 
 import aiohttp
 import asyncio
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import yaml
 
+DEFAULT_OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+
 class OllamaClient:
     """Client for interacting with Ollama AI instance"""
     
-    def __init__(self, base_url: str = "http://pop-os2.local:11434"):
+    def __init__(self, base_url: str = None):
+        if base_url is None:
+            base_url = DEFAULT_OLLAMA_HOST
         self.base_url = base_url.rstrip('/')
         self.models_cache = {}
         self.logger = logging.getLogger('OllamaClient')
@@ -137,7 +142,9 @@ class OllamaClient:
 class AIContentGenerator:
     """AI-powered content generator using Ollama with brand templates"""
     
-    def __init__(self, ollama_url: str = "http://pop-os2.local:11434"):
+    def __init__(self, ollama_url: str = None):
+        if ollama_url is None:
+            ollama_url = DEFAULT_OLLAMA_HOST
         self.ollama = OllamaClient(ollama_url)
         self.config_dir = Path(__file__).parent.parent.parent / 'config'
         self.templates_dir = Path(__file__).parent.parent.parent / 'templates'
@@ -409,7 +416,7 @@ async def test_ollama_integration():
     connected = await client.test_connection()
     
     if not connected:
-        print("❌ Cannot connect to Ollama. Make sure it's running at pop-os2.local:11434")
+        print(f"❌ Cannot connect to Ollama. Make sure it's running at {DEFAULT_OLLAMA_HOST}")
         return
     
     # List available models

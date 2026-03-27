@@ -14,6 +14,7 @@ Usage:
 import asyncio
 import argparse
 import logging
+import os
 import smtplib
 from datetime import datetime
 from email.mime.text import MIMEText
@@ -162,8 +163,8 @@ class BrandOutreachRunner:
         self.smtp_config = {
             'smtp_server': 'smtp-relay.brevo.com',
             'smtp_port': 587,
-            'username': '96af72001@smtp-brevo.com',
-            'password': 'F9BCg30JqkyZmVWw'
+            'username': os.getenv('BREVO_SMTP_USER', ''),
+            'password': os.getenv('BREVO_SMTP_PASSWORD', '')
         }
     
     def generate_personalized_message(self, target, template_data):

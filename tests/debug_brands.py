@@ -53,7 +53,7 @@ def debug_brand_configs():
     try:
         from automation.ai.ollama_integration import AIContentGenerator
         
-        generator = AIContentGenerator("http://pop-os2.local:11434")
+        generator = AIContentGenerator()
         print(f"Brand configs loaded: {list(generator.brand_configs.keys())}")
         
         for brand_name, config in generator.brand_configs.items():

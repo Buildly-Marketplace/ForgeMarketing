@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to ForgeMarketing - Setup</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .setup-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 720px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 36px 40px;
+            text-align: center;
+        }
+        .header h1 { font-size: 28px; margin-bottom: 6px; }
+        .header p  { font-size: 15px; opacity: 0.9; }
+
+        .content { padding: 36px 40px; }
+
+        /* ---------- Steps ---------- */
+        .step { display: none; }
+        .step.active { display: block; animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+        .step-dots { display: flex; justify-content: center; gap: 10px; margin-bottom: 28px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; background: #e0e0e0; transition: .3s; }
+        .dot.active  { background: #667eea; transform: scale(1.2); }
+        .dot.done    { background: #4caf50; }
+
+        /* ---------- Form ---------- */
+        .form-group { margin-bottom: 22px; }
+        label { display: block; font-weight: 600; margin-bottom: 6px; color: #333; }
+        input, textarea, select {
+            width: 100%; padding: 12px; border: 2px solid #e0e0e0;
+            border-radius: 8px; font-size: 14px; transition: border-color .2s;
+        }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: #667eea; }
+        textarea { resize: vertical; min-height: 72px; }
+        .help { font-size: 12px; color: #888; margin-top: 4px; }
+
+        /* ---------- Buttons ---------- */
+        .btn {
+            padding: 12px 28px; border: none; border-radius: 8px;
+            font-size: 14px; font-weight: 600; cursor: pointer; transition: .2s;
+        }
+        .btn-primary { background: #667eea; color: #fff; }
+        .btn-primary:hover { background: #5568d3; box-shadow: 0 4px 12px rgba(102,126,234,.4); }
+        .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-secondary { background: #e0e0e0; color: #333; }
+        .btn-secondary:hover { background: #d0d0d0; }
+        .btn-success { background: #4caf50; color: #fff; }
+        .btn-success:hover { background: #43a047; }
+        .btn-outline { background: transparent; border: 2px solid #e0e0e0; color: #888; }
+        .btn-outline:hover { border-color: #667eea; color: #667eea; }
+        .btn-row { display: flex; justify-content: space-between; margin-top: 28px; }
+
+        /* ---------- Alert ---------- */
+        .alert { padding: 12px; border-radius: 6px; margin-bottom: 18px; }
+        .alert-error { background: #ffebee; color: #c62828; border: 1px solid #f44336; }
+        .alert-success { background: #e8f5e9; color: #2e7d32; border: 1px solid #4caf50; }
+        .alert-info { background: #e3f2fd; color: #1565c0; border: 1px solid #42a5f5; }
+
+        /* ---------- Discovered card ---------- */
+        .discovered-card {
+            background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 10px;
+            padding: 20px; margin-bottom: 20px;
+        }
+        .brand-header { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+        .brand-logo {
+            width: 64px; height: 64px; border-radius: 10px; object-fit: contain;
+            background: #fff; border: 1px solid #e0e0e0;
+        }
+        .brand-logo-placeholder {
+            width: 64px; height: 64px; border-radius: 10px; background: #667eea;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 28px; font-weight: 700;
+        }
+        .brand-title { font-size: 22px; font-weight: 700; color: #333; }
+        .brand-url   { font-size: 13px; color: #888; }
+
+        .social-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .social-tag {
+            background: #e8eaf6; color: #3f51b5; padding: 4px 12px;
+            border-radius: 20px; font-size: 12px; font-weight: 600;
+            text-decoration: none;
+        }
+
+        /* ---------- Spinner ---------- */
+        .spinner-wrap { text-align: center; padding: 48px 0; }
+        .spinner {
+            border: 4px solid #f3f3f3; border-top: 4px solid #667eea;
+            border-radius: 50%; width: 44px; height: 44px;
+            animation: spin 1s linear infinite; margin: 0 auto 18px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner-text { color: #555; font-size: 15px; }
+
+        .section-label {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+            color: #999; margin-bottom: 6px; font-weight: 600;
+        }
+
+        /* ---------- Done screen ---------- */
+        .done-screen { text-align: center; padding: 20px 0; }
+        .done-icon { font-size: 64px; margin-bottom: 16px; }
+        .done-screen h2 { font-size: 24px; margin-bottom: 8px; color: #333; }
+        .done-screen p { color: #666; margin-bottom: 28px; }
+
+        /* ---------- Config cards ---------- */
+        .config-option {
+            border: 2px solid #e0e0e0; border-radius: 10px; padding: 16px;
+            margin-bottom: 12px; cursor: pointer; transition: .2s;
+        }
+        .config-option:hover { border-color: #667eea; }
+        .config-option.selected { border-color: #667eea; background: #f0f2ff; }
+        .config-option .opt-title { font-weight: 600; color: #333; margin-bottom: 4px; }
+        .config-option .opt-desc { font-size: 13px; color: #888; }
+
+        .collapsible-fields { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e0e0e0; }
+        .config-option.selected .collapsible-fields { display: block; }
+
+        .social-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .social-row label { min-width: 80px; margin-bottom: 0; font-size: 13px; }
+        .social-row input { flex: 1; }
+
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .status-dot.green { background: #4caf50; }
+        .status-dot.red { background: #ef5350; }
+        .status-dot.yellow { background: #ffc107; }
+
+        .test-result { font-size: 13px; margin-top: 8px; padding: 8px 12px; border-radius: 6px; }
+        .test-result.success { background: #e8f5e9; color: #2e7d32; }
+        .test-result.fail { background: #ffebee; color: #c62828; }
+    </style>
+</head>
+<body>
+<div class="setup-container">
+    <div class="header">
+        <h1>Welcome to ForgeMarketing</h1>
+        <p>Tell us about your brand and we'll set everything up</p>
+    </div>
+
+    <div class="content">
+        <div class="step-dots" id="step-dots">
+            <div class="dot active" id="dot-1"></div>
+            <div class="dot" id="dot-2"></div>
+            <div class="dot" id="dot-3"></div>
+            <div class="dot" id="dot-4"></div>
+            <div class="dot" id="dot-5"></div>
+            <div class="dot" id="dot-6"></div>
+        </div>
+
+        <div id="alert-box"></div>
+
+        <!-- ========== STEP 1: Brand Name + URL ========== -->
+        <div class="step active" id="step-1">
+            <h2 style="font-size:20px; margin-bottom:6px; color:#333;">Tell us about your brand</h2>
+            <p style="color:#666; margin-bottom:24px;">We'll visit your website and auto-detect everything we can.</p>
+
+            <div class="form-group">
+                <label for="brand_display_name">Brand Name *</label>
+                <input type="text" id="brand_display_name" placeholder="Acme Corp" autofocus>
+                <div class="help">The name that appears in the dashboard and emails</div>
+            </div>
+
+            <div class="form-group">
+                <label for="brand_website">Website URL *</label>
+                <input type="url" id="brand_website" placeholder="https://acme.com">
+                <div class="help">We'll pull your logo, description, and social links automatically</div>
+            </div>
+
+            <div class="form-group">
+                <label for="admin_email">Your Email *</label>
+                <input type="email" id="admin_email" placeholder="you@acme.com">
+                <div class="help">For system notifications and reports</div>
+            </div>
+
+            <div class="btn-row">
+                <div></div>
+                <button class="btn btn-primary" onclick="startDiscovery()">Set Up My Brand &rarr;</button>
+            </div>
+        </div>
+
+        <!-- ========== STEP 2: Discovering / Review ========== -->
+        <div class="step" id="step-2">
+            <div id="discovering" class="spinner-wrap">
+                <div class="spinner"></div>
+                <div class="spinner-text">Visiting your website and collecting brand info&hellip;</div>
+            </div>
+
+            <div id="review-panel" style="display:none;">
+                <h2 style="font-size:20px; margin-bottom:6px; color:#333;">Here's what we found</h2>
+                <p style="color:#666; margin-bottom:20px;">Review and edit anything before we continue.</p>
+
+                <div class="discovered-card">
+                    <div class="brand-header">
+                        <div id="logo-container"></div>
+                        <div>
+                            <div class="brand-title" id="review-name"></div>
+                            <div class="brand-url" id="review-url"></div>
+                        </div>
+                    </div>
+                    <div id="social-container" style="display:none;">
+                        <div class="section-label">Social Accounts Found</div>
+                        <div class="social-links" id="social-links"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_description">Description</label>
+                    <textarea id="edit_description" placeholder="A short description of your brand"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit_logo_url">Logo URL</label>
+                    <input type="url" id="edit_logo_url" placeholder="https://...">
+                    <div class="help">Auto-detected from your website. Change if needed.</div>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="goToStep(1)">&larr; Back</button>
+                    <button class="btn btn-primary" onclick="saveBrandThenContinue()">Continue &rarr;</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== STEP 3: Email Configuration ========== -->
+        <div class="step" id="step-3">
+            <h2 style="font-size:20px; margin-bottom:6px; color:#333;">&#x1f4e7; Email Configuration</h2>
+            <p style="color:#666; margin-bottom:20px;">Configure an email provider so you can send campaigns and reports.</p>
+
+            <div class="form-group">
+                <label for="email_provider">Email Provider</label>
+                <select id="email_provider" onchange="toggleEmailFields()">
+                    <option value="">-- Select a provider --</option>
+                    <option value="mailersend">MailerSend</option>
+                    <option value="brevo">Brevo (Sendinblue)</option>
+                    <option value="sendgrid">SendGrid</option>
+                    <option value="mailgun">Mailgun</option>
+                    <option value="smtp">Custom SMTP</option>
+                </select>
+            </div>
+
+            <!-- API-based providers -->
+            <div id="email-api-fields" style="display:none;">
+                <div class="form-group">
+                    <label for="email_api_key">API Key *</label>
+                    <input type="password" id="email_api_key" placeholder="Enter your API key">
+                    <div class="help" id="email_api_help">Find this in your provider's dashboard under API settings.</div>
+                </div>
+                <div class="form-group">
+                    <label for="email_from">From Email *</label>
+                    <input type="email" id="email_from" placeholder="hello@yourdomain.com">
+                    <div class="help">The sender address for outgoing emails (must be verified with your provider)</div>
+                </div>
+                <div class="form-group">
+                    <label for="email_from_name">From Name</label>
+                    <input type="text" id="email_from_name" placeholder="Your Brand">
+                </div>
+                <button class="btn btn-outline" onclick="testEmailConfig()" id="btn-test-email" style="font-size:13px;">&#x1f9ea; Test Connection</button>
+                <div id="email-test-result"></div>
+            </div>
+
+            <!-- SMTP fields -->
+            <div id="email-smtp-fields" style="display:none;">
+                <div class="form-group">
+                    <label for="smtp_host">SMTP Host *</label>
+                    <input type="text" id="smtp_host" placeholder="smtp.yourdomain.com">
+                </div>
+                <div style="display:flex; gap:12px;">
+                    <div class="form-group" style="flex:1;">
+                        <label for="smtp_port">Port</label>
+                        <input type="number" id="smtp_port" value="587">
+                    </div>
+                    <div class="form-group" style="flex:2;">
+                        <label for="smtp_user">Username</label>
+                        <input type="text" id="smtp_user" placeholder="user@yourdomain.com">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="smtp_password">Password</label>
+                    <input type="password" id="smtp_password" placeholder="SMTP password">
+                </div>
+                <div class="form-group">
+                    <label for="smtp_from">From Email *</label>
+                    <input type="email" id="smtp_from" placeholder="hello@yourdomain.com">
+                </div>
+                <div class="form-group">
+                    <label for="smtp_from_name">From Name</label>
+                    <input type="text" id="smtp_from_name" placeholder="Your Brand">
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="goToStep(2)">&larr; Back</button>
+                <div>
+                    <button class="btn btn-outline" onclick="goToStep(4)" style="margin-right:8px;">Skip for now</button>
+                    <button class="btn btn-primary" onclick="saveEmailConfig()">Save &amp; Continue &rarr;</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== STEP 4: Social Media Accounts ========== -->
+        <div class="step" id="step-4">
+            <h2 style="font-size:20px; margin-bottom:6px; color:#333;">&#x1f310; Social Media Accounts</h2>
+            <p style="color:#666; margin-bottom:20px;">Connect your social accounts for automated posting and analytics.</p>
+
+            <div id="social-auto-detected" class="alert alert-info" style="display:none;">
+                We auto-detected some social links from your website. Add API credentials below to enable posting.
+            </div>
+
+            <div class="form-group">
+                <div class="section-label">Twitter / X</div>
+                <div class="social-row">
+                    <label>API Key</label>
+                    <input type="password" id="twitter_api_key" placeholder="Consumer API key">
+                </div>
+                <div class="social-row">
+                    <label>API Secret</label>
+                    <input type="password" id="twitter_api_secret" placeholder="Consumer API secret">
+                </div>
+                <div class="social-row">
+                    <label>Bearer Token</label>
+                    <input type="password" id="twitter_bearer" placeholder="Bearer token">
+                </div>
+                <div class="social-row">
+                    <label>Access Token</label>
+                    <input type="password" id="twitter_access_token" placeholder="Access token">
+                </div>
+                <div class="social-row">
+                    <label>Access Secret</label>
+                    <input type="password" id="twitter_access_secret" placeholder="Access token secret">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="section-label">LinkedIn</div>
+                <div class="social-row">
+                    <label>Client ID</label>
+                    <input type="password" id="linkedin_client_id" placeholder="LinkedIn Client ID">
+                </div>
+                <div class="social-row">
+                    <label>Client Secret</label>
+                    <input type="password" id="linkedin_client_secret" placeholder="LinkedIn Client Secret">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="section-label">BlueSky</div>
+                <div class="social-row">
+                    <label>Handle</label>
+                    <input type="text" id="bluesky_handle" placeholder="you.bsky.social">
+                </div>
+                <div class="social-row">
+                    <label>App Password</label>
+                    <input type="password" id="bluesky_password" placeholder="App password">
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="goToStep(3)">&larr; Back</button>
+                <div>
+                    <button class="btn btn-outline" onclick="goToStep(5)" style="margin-right:8px;">Skip for now</button>
+                    <button class="btn btn-primary" onclick="saveSocialConfig()">Save &amp; Continue &rarr;</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== STEP 5: AI Configuration ========== -->
+        <div class="step" id="step-5">
+            <h2 style="font-size:20px; margin-bottom:6px; color:#333;">&#x1f916; AI Content Assistant</h2>
+            <p style="color:#666; margin-bottom:20px;">Connect an AI model to generate blog posts, social content, and email campaigns.</p>
+
+            <div class="config-option" id="opt-ollama" onclick="selectAIProvider('ollama')">
+                <div class="opt-title">Ollama (Local / Self-Hosted)</div>
+                <div class="opt-desc">Run AI models locally or on your own server. Free and private.</div>
+                <div class="collapsible-fields">
+                    <div class="form-group">
+                        <label for="ollama_url">Ollama URL</label>
+                        <input type="url" id="ollama_url" placeholder="http://localhost:11434" value="http://localhost:11434">
+                        <div class="help">The URL where your Ollama instance is running</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="ollama_model">Model</label>
+                        <select id="ollama_model">
+                            <option value="llama3.2:1b">Llama 3.2 1B (fast, lightweight)</option>
+                            <option value="llama3.2:3b">Llama 3.2 3B (balanced)</option>
+                            <option value="qwen:7b">Qwen 7B (high quality)</option>
+                            <option value="gemma3:latest">Gemma 3 (Google)</option>
+                            <option value="deepseek-r1:1.5b">DeepSeek R1 1.5B (reasoning)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-outline" onclick="testAIConnection()" style="font-size:13px;">&#x1f9ea; Test Connection</button>
+                    <div id="ai-test-result"></div>
+                </div>
+            </div>
+
+            <div class="config-option" id="opt-openai" onclick="selectAIProvider('openai')">
+                <div class="opt-title">OpenAI (ChatGPT)</div>
+                <div class="opt-desc">Use OpenAI's GPT models via API. Requires an API key.</div>
+                <div class="collapsible-fields">
+                    <div class="form-group">
+                        <label for="openai_api_key">OpenAI API Key</label>
+                        <input type="password" id="openai_api_key" placeholder="sk-...">
+                        <div class="help">Get your key at <a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="openai_model">Model</label>
+                        <select id="openai_model">
+                            <option value="gpt-4o-mini">GPT-4o Mini (fast, affordable)</option>
+                            <option value="gpt-4o">GPT-4o (highest quality)</option>
+                            <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button class="btn btn-secondary" onclick="goToStep(4)">&larr; Back</button>
+                <div>
+                    <button class="btn btn-outline" onclick="goToStep(6)" style="margin-right:8px;">Skip for now</button>
+                    <button class="btn btn-primary" onclick="saveAIConfig()">Save &amp; Finish &rarr;</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== STEP 6: Done ========== -->
+        <div class="step" id="step-6">
+            <div class="done-screen">
+                <div class="done-icon">&#x1f389;</div>
+                <h2>You're all set!</h2>
+                <p>Your brand <strong id="done-brand-name"></strong> is configured and ready to go.</p>
+                <div id="done-summary" style="text-align:left; margin-bottom:24px;"></div>
+                <a href="/" class="btn btn-success">Open Dashboard &rarr;</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* ---- state ---- */
+    const TOTAL_STEPS = 6;
+    let discovered = {};
+    let currentStep = 1;
+    let savedBrandName = '';    // slug returned from server
+    let selectedAIProvider = null;
+
+    /* ---- helpers ---- */
+    function showAlert(msg, type = 'error') {
+        const box = document.getElementById('alert-box');
+        box.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+        setTimeout(() => { box.innerHTML = ''; }, 6000);
+    }
+
+    function goToStep(n) {
+        currentStep = n;
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        document.getElementById('step-' + n).classList.add('active');
+        for (let i = 1; i <= TOTAL_STEPS; i++) {
+            const d = document.getElementById('dot-' + i);
+            d.className = 'dot' + (i < n ? ' done' : i === n ? ' active' : '');
+        }
+        window.scrollTo(0, 0);
+    }
+
+    /* ---- Step 1 → 2: discover ---- */
+    async function startDiscovery() {
+        const displayName = document.getElementById('brand_display_name').value.trim();
+        const website     = document.getElementById('brand_website').value.trim();
+        const email       = document.getElementById('admin_email').value.trim();
+
+        if (!displayName) { showAlert('Please enter your brand name.'); return; }
+        if (!website)     { showAlert('Please enter your website URL.'); return; }
+        if (!email || !email.includes('@')) { showAlert('Please enter a valid email address.'); return; }
+
+        goToStep(2);
+        document.getElementById('discovering').style.display = '';
+        document.getElementById('review-panel').style.display = 'none';
+
+        try {
+            const resp = await fetch('/api/onboarding/discover', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ display_name: displayName, website_url: website })
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Discovery failed');
+            discovered = data;
+            renderReview(displayName, website);
+        } catch (err) {
+            discovered = { website_url: website, description: '', logo_url: '', social_links: {} };
+            renderReview(displayName, website);
+        }
+    }
+
+    function renderReview(displayName, website) {
+        document.getElementById('discovering').style.display = 'none';
+        document.getElementById('review-panel').style.display = '';
+        document.getElementById('review-name').textContent = displayName;
+        document.getElementById('review-url').textContent = discovered.website_url || website;
+
+        const logoCont = document.getElementById('logo-container');
+        if (discovered.logo_url) {
+            logoCont.innerHTML = `<img class="brand-logo" src="${discovered.logo_url}" alt="logo" onerror="this.outerHTML='<div class=\\'brand-logo-placeholder\\'>${displayName[0]}</div>'">`;
+        } else {
+            logoCont.innerHTML = `<div class="brand-logo-placeholder">${displayName[0]}</div>`;
+        }
+
+        document.getElementById('edit_description').value = discovered.description || '';
+        document.getElementById('edit_logo_url').value = discovered.logo_url || '';
+
+        /* social links */
+        const links = discovered.social_links || {};
+        const socialCont = document.getElementById('social-container');
+        const socialEl   = document.getElementById('social-links');
+        if (Object.keys(links).length > 0) {
+            socialCont.style.display = '';
+            socialEl.innerHTML = Object.entries(links)
+                .map(([p, u]) => `<a href="${u}" target="_blank" class="social-tag">${p}</a>`)
+                .join('');
+            /* pre-fill from name on email step */
+            document.getElementById('email_from_name').value = displayName;
+            document.getElementById('smtp_from_name').value = displayName;
+            /* show auto-detect notice on social step */
+            document.getElementById('social-auto-detected').style.display = '';
+        } else {
+            socialCont.style.display = 'none';
+            document.getElementById('social-auto-detected').style.display = 'none';
+        }
+    }
+
+    /* ---- Step 2: save brand then continue ---- */
+    async function saveBrandThenContinue() {
+        const displayName = document.getElementById('brand_display_name').value.trim();
+        const website     = document.getElementById('brand_website').value.trim();
+        const email       = document.getElementById('admin_email').value.trim();
+        const description = document.getElementById('edit_description').value.trim();
+        const logoUrl     = document.getElementById('edit_logo_url').value.trim();
+
+        try {
+            const resp = await fetch('/api/onboarding/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    display_name: displayName,
+                    website_url: discovered.website_url || website,
+                    admin_email: email,
+                    description: description,
+                    logo_url: logoUrl,
+                    social_links: discovered.social_links || {},
+                    theme_color: discovered.theme_color || ''
+                })
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Save failed');
+
+            savedBrandName = data.brand.name;
+            document.getElementById('done-brand-name').textContent = displayName;
+
+            /* pre-fill email from field */
+            document.getElementById('email_from').value = email;
+            document.getElementById('smtp_from').value = email;
+            document.getElementById('email_from_name').value = document.getElementById('email_from_name').value || displayName;
+            document.getElementById('smtp_from_name').value = document.getElementById('smtp_from_name').value || displayName;
+
+            goToStep(3);
+        } catch (err) {
+            showAlert('Save failed: ' + err.message);
+        }
+    }
+
+    /* ---- Step 3: Email config ---- */
+    function toggleEmailFields() {
+        const provider = document.getElementById('email_provider').value;
+        const apiFields  = document.getElementById('email-api-fields');
+        const smtpFields = document.getElementById('email-smtp-fields');
+        apiFields.style.display  = 'none';
+        smtpFields.style.display = 'none';
+
+        if (provider === 'smtp') {
+            smtpFields.style.display = '';
+        } else if (provider) {
+            apiFields.style.display = '';
+            const helpMap = {
+                mailersend: 'Find yours at <a href="https://app.mailersend.com/api-tokens" target="_blank">app.mailersend.com</a>',
+                brevo: 'Find yours at <a href="https://app.brevo.com/settings/keys/api" target="_blank">app.brevo.com</a>',
+                sendgrid: 'Find yours at <a href="https://app.sendgrid.com/settings/api_keys" target="_blank">app.sendgrid.com</a>',
+                mailgun: 'Find yours in <a href="https://app.mailgun.com/app/sending/domains" target="_blank">app.mailgun.com</a>'
+            };
+            document.getElementById('email_api_help').innerHTML = helpMap[provider] || '';
+        }
+    }
+
+    async function testEmailConfig() {
+        const btn = document.getElementById('btn-test-email');
+        const res = document.getElementById('email-test-result');
+        btn.disabled = true;
+        btn.textContent = 'Testing...';
+        res.innerHTML = '';
+
+        const provider = document.getElementById('email_provider').value;
+        const api_key  = document.getElementById('email_api_key').value.trim();
+
+        try {
+            const resp = await fetch('/api/onboarding/test-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider, api_key })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                res.innerHTML = `<div class="test-result success"><span class="status-dot green"></span>Connection successful!</div>`;
+            } else {
+                res.innerHTML = `<div class="test-result fail"><span class="status-dot red"></span>${data.error || 'Connection failed'}</div>`;
+            }
+        } catch (err) {
+            res.innerHTML = `<div class="test-result fail"><span class="status-dot red"></span>${err.message}</div>`;
+        }
+        btn.disabled = false;
+        btn.textContent = '\u{1F9EA} Test Connection';
+    }
+
+    async function saveEmailConfig() {
+        const provider = document.getElementById('email_provider').value;
+        if (!provider) { showAlert('Please select an email provider.'); return; }
+
+        let payload = { brand_name: savedBrandName, provider };
+
+        if (provider === 'smtp') {
+            payload.smtp_host     = document.getElementById('smtp_host').value.trim();
+            payload.smtp_port     = parseInt(document.getElementById('smtp_port').value) || 587;
+            payload.smtp_user     = document.getElementById('smtp_user').value.trim();
+            payload.smtp_password = document.getElementById('smtp_password').value.trim();
+            payload.from_email    = document.getElementById('smtp_from').value.trim();
+            payload.from_name     = document.getElementById('smtp_from_name').value.trim();
+            if (!payload.smtp_host || !payload.from_email) { showAlert('Please fill in SMTP host and from email.'); return; }
+        } else {
+            payload.api_key    = document.getElementById('email_api_key').value.trim();
+            payload.from_email = document.getElementById('email_from').value.trim();
+            payload.from_name  = document.getElementById('email_from_name').value.trim();
+            if (!payload.api_key || !payload.from_email) { showAlert('Please fill in API key and from email.'); return; }
+        }
+
+        try {
+            const resp = await fetch('/api/onboarding/save-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Save failed');
+            goToStep(4);
+        } catch (err) {
+            showAlert('Save failed: ' + err.message);
+        }
+    }
+
+    /* ---- Step 4: Social media ---- */
+    async function saveSocialConfig() {
+        const credentials = {};
+
+        /* Twitter */
+        const twKey    = document.getElementById('twitter_api_key').value.trim();
+        const twSecret = document.getElementById('twitter_api_secret').value.trim();
+        if (twKey && twSecret) {
+            credentials.twitter = {
+                api_key: twKey,
+                api_secret: twSecret,
+                bearer_token: document.getElementById('twitter_bearer').value.trim(),
+                access_token: document.getElementById('twitter_access_token').value.trim(),
+                access_token_secret: document.getElementById('twitter_access_secret').value.trim()
+            };
+        }
+
+        /* LinkedIn */
+        const liId     = document.getElementById('linkedin_client_id').value.trim();
+        const liSecret = document.getElementById('linkedin_client_secret').value.trim();
+        if (liId && liSecret) {
+            credentials.linkedin = { client_id: liId, client_secret: liSecret };
+        }
+
+        /* BlueSky */
+        const bsHandle = document.getElementById('bluesky_handle').value.trim();
+        const bsPass   = document.getElementById('bluesky_password').value.trim();
+        if (bsHandle && bsPass) {
+            credentials.bluesky = { handle: bsHandle, app_password: bsPass };
+        }
+
+        if (Object.keys(credentials).length === 0) {
+            goToStep(5); /* nothing to save, skip */
+            return;
+        }
+
+        try {
+            const resp = await fetch('/api/onboarding/save-social', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ brand_name: savedBrandName, credentials })
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Save failed');
+            goToStep(5);
+        } catch (err) {
+            showAlert('Save failed: ' + err.message);
+        }
+    }
+
+    /* ---- Step 5: AI config ---- */
+    function selectAIProvider(provider) {
+        selectedAIProvider = provider;
+        document.querySelectorAll('.config-option').forEach(el => el.classList.remove('selected'));
+        document.getElementById('opt-' + provider).classList.add('selected');
+    }
+
+    async function testAIConnection() {
+        const url = document.getElementById('ollama_url').value.trim();
+        const res = document.getElementById('ai-test-result');
+        res.innerHTML = '<div class="test-result" style="background:#fff3e0;color:#e65100;">Testing connection...</div>';
+
+        try {
+            const resp = await fetch('/api/onboarding/test-ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ provider: 'ollama', url })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                let models = (data.models || []).map(m => m.name || m).join(', ');
+                res.innerHTML = `<div class="test-result success"><span class="status-dot green"></span>Connected! Models available: ${models || 'none found'}</div>`;
+                /* populate model select with actual models */
+                if (data.models && data.models.length > 0) {
+                    const sel = document.getElementById('ollama_model');
+                    sel.innerHTML = data.models.map(m => {
+                        const name = m.name || m;
+                        return `<option value="${name}">${name}</option>`;
+                    }).join('');
+                }
+            } else {
+                res.innerHTML = `<div class="test-result fail"><span class="status-dot red"></span>${data.error || 'Connection failed'}</div>`;
+            }
+        } catch (err) {
+            res.innerHTML = `<div class="test-result fail"><span class="status-dot red"></span>${err.message}</div>`;
+        }
+    }
+
+    async function saveAIConfig() {
+        if (!selectedAIProvider) { showAlert('Please select an AI provider.'); return; }
+
+        let payload = { provider: selectedAIProvider };
+        if (selectedAIProvider === 'ollama') {
+            payload.url   = document.getElementById('ollama_url').value.trim();
+            payload.model = document.getElementById('ollama_model').value;
+        } else if (selectedAIProvider === 'openai') {
+            payload.api_key = document.getElementById('openai_api_key').value.trim();
+            payload.model   = document.getElementById('openai_model').value;
+            if (!payload.api_key) { showAlert('Please enter your OpenAI API key.'); return; }
+        }
+
+        try {
+            const resp = await fetch('/api/onboarding/save-ai', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.error || 'Save failed');
+            buildDoneSummary();
+            goToStep(6);
+        } catch (err) {
+            showAlert('Save failed: ' + err.message);
+        }
+    }
+
+    /* ---- Done summary ---- */
+    function buildDoneSummary() {
+        const items = [];
+        items.push('<strong>Brand:</strong> ' + (document.getElementById('brand_display_name').value.trim()));
+        const provider = document.getElementById('email_provider').value;
+        if (provider) items.push('<strong>Email:</strong> ' + provider);
+        if (selectedAIProvider) items.push('<strong>AI:</strong> ' + selectedAIProvider);
+        const socials = [];
+        if (document.getElementById('twitter_api_key').value.trim()) socials.push('Twitter');
+        if (document.getElementById('linkedin_client_id').value.trim()) socials.push('LinkedIn');
+        if (document.getElementById('bluesky_handle').value.trim()) socials.push('BlueSky');
+        if (socials.length) items.push('<strong>Social:</strong> ' + socials.join(', '));
+
+        const el = document.getElementById('done-summary');
+        el.innerHTML = '<div class="discovered-card"><div class="section-label">Configuration Summary</div>' +
+            items.map(i => '<div style="padding:4px 0;">' + i + '</div>').join('') +
+            '<div style="padding:4px 0;color:#888;font-size:13px;">You can change any of these settings later in Admin &rarr; Brands.</div></div>';
+    }
+</script>
+</body>
+</html>

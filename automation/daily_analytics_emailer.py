@@ -55,8 +55,8 @@ SMTP_CONFIG = {
     'service': 'brevo',
     'smtp_server': 'smtp-relay.brevo.com',
     'smtp_port': 587,
-    'username': '<your-brevo-smtp-user>',
-    'password': 'F9BCg30JqkyZmVWw',
+    'username': os.getenv('BREVO_SMTP_USER', ''),
+    'password': os.getenv('BREVO_SMTP_PASSWORD', ''),
     'from_name': 'Marketing Analytics System',
     'from_email': 'team@buildly.io'
 }

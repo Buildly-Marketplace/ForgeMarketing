@@ -2,7 +2,8 @@
 # Configuration for Ollama AI integration and content generation
 
 ollama:
-  base_url: "http://pop-os2.local:11434"
+  # Set OLLAMA_HOST env var to override (default: http://localhost:11434)
+  base_url: "http://localhost:11434"
   
   # Model Configuration
   default_model: "llama3.2:1b"

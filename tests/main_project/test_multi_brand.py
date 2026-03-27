@@ -21,7 +21,7 @@ async def test_all_brands():
         print("🌟 Multi-Brand Content Generation Test")
         print("=" * 45)
         
-        generator = AIContentGenerator("http://pop-os2.local:11434")
+        generator = AIContentGenerator("http://localhost:11434")
         brands = list(generator.brand_configs.keys())
         
         print(f"📋 Testing {len(brands)} brands: {', '.join(brands)}")

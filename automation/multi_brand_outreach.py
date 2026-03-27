@@ -497,8 +497,8 @@ class MultiBrandOutreachCampaign:
         self.smtp_config = {
             'smtp_server': 'smtp-relay.brevo.com',
             'smtp_port': 587,
-            'username': '96af72001@smtp-brevo.com',
-            'password': 'F9BCg30JqkyZmVWw'
+            'username': os.getenv('BREVO_SMTP_USER', ''),
+            'password': os.getenv('BREVO_SMTP_PASSWORD', '')
         }
     
     def get_campaign_targets(self, brand: str, limit: int = 5) -> List[OutreachTarget]:

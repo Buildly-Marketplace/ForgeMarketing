@@ -114,7 +114,7 @@ main() {
     
     # Check Ollama service availability
     log "Checking Ollama service..."
-    ollama_host="${OLLAMA_HOST:-http://pop-os2.local:11434}"
+    ollama_host="${OLLAMA_HOST:-http://localhost:11434}"
     
     if curl -s -f "${ollama_host}/api/version" >/dev/null 2>&1; then
         log "Ollama service is available"

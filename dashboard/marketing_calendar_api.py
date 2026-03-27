@@ -8,7 +8,7 @@ from dashboard.marketing_calendar_models import (
     MarketingCalendar, MarketingTask, ContentTemplate, MarketingWeekly,
     TaskStatus, TaskPriority, TaskType, PlatformType
 )
-from dashboard.models import Brand, db
+from dashboard.models import Brand, SystemConfig, db
 import json
 
 marketing_calendar_bp = Blueprint('marketing_calendar', __name__, url_prefix='/api/marketing')
@@ -129,6 +129,50 @@ def get_campaign(campaign_id):
             'created_at': campaign.created_at.isoformat()
         }
     })
+
+
+@marketing_calendar_bp.route('/campaigns/<int:campaign_id>', methods=['PUT'])
+def update_campaign(campaign_id):
+    """Update a campaign"""
+    campaign = MarketingCalendar.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'success': False, 'error': 'Campaign not found'}), 404
+
+    data = request.get_json()
+    for field in ['campaign_name', 'description', 'goal', 'target_metric', 'status', 'owner', 'notes']:
+        if field in data:
+            setattr(campaign, field, data[field])
+    if 'start_date' in data:
+        campaign.start_date = datetime.fromisoformat(data['start_date'])
+    if 'end_date' in data:
+        campaign.end_date = datetime.fromisoformat(data['end_date'])
+    if 'budget' in data:
+        campaign.budget = data['budget']
+    campaign.updated_at = datetime.utcnow()
+
+    try:
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Campaign "{campaign.campaign_name}" updated'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@marketing_calendar_bp.route('/campaigns/<int:campaign_id>', methods=['DELETE'])
+def delete_campaign(campaign_id):
+    """Delete a campaign and all its tasks"""
+    campaign = MarketingCalendar.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'success': False, 'error': 'Campaign not found'}), 404
+
+    try:
+        name = campaign.campaign_name
+        db.session.delete(campaign)
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Campaign "{name}" deleted'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ============ TASKS ============
@@ -503,3 +547,199 @@ def get_calendar_view():
         'success': True,
         'data': calendar_data
     })
+
+
+@marketing_calendar_bp.route('/tasks/<int:task_id>', methods=['DELETE'])
+def delete_task(task_id):
+    """Delete a task"""
+    task = MarketingTask.query.get(task_id)
+    if not task:
+        return jsonify({'success': False, 'error': 'Task not found'}), 404
+    try:
+        name = task.task_name
+        db.session.delete(task)
+        db.session.commit()
+        return jsonify({'success': True, 'message': f'Task "{name}" deleted'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ============ AI CONTENT GENERATION ============
+
+@marketing_calendar_bp.route('/generate-content', methods=['POST'])
+def generate_content():
+    """Use AI to generate content for a task or a whole content plan"""
+    data = request.get_json() or {}
+    brand_name = data.get('brand_name', '')
+    content_type = data.get('content_type', 'social_post')  # social_post, blog, email, content_plan
+    platform = data.get('platform', 'twitter')
+    topic = data.get('topic', '')
+    campaign_id = data.get('campaign_id')
+    num_items = min(data.get('num_items', 5), 30)
+
+    if not brand_name:
+        return jsonify({'success': False, 'error': 'brand_name is required'}), 400
+
+    brand = Brand.query.filter_by(name=brand_name).first()
+    if not brand:
+        return jsonify({'success': False, 'error': 'Brand not found'}), 404
+
+    # Get AI config from SystemConfig
+    ai_provider = 'ollama'
+    ai_url = 'http://localhost:11434'
+    ai_model = 'llama3.2:1b'
+    try:
+        cfg = {c.key: c.value for c in SystemConfig.query.filter(SystemConfig.key.like('ai_%')).all()}
+        ai_provider = cfg.get('ai_provider', ai_provider)
+        ai_url = cfg.get('ai_ollama_url', ai_url)
+        ai_model = cfg.get('ai_model', ai_model)
+    except Exception:
+        pass
+
+    if content_type == 'content_plan':
+        return _generate_content_plan(brand, ai_url, ai_model, topic, num_items, campaign_id)
+    else:
+        return _generate_single_content(brand, ai_url, ai_model, content_type, platform, topic)
+
+
+def _generate_single_content(brand, ai_url, ai_model, content_type, platform, topic):
+    """Generate a single piece of content"""
+    import requests as ext_requests
+
+    type_prompts = {
+        'social_post': f"Write a {platform} post for {brand.display_name}. Topic: {topic or 'brand awareness'}. "
+                       f"Brand description: {brand.description or 'technology company'}. "
+                       f"Keep it concise, engaging, include relevant hashtags. Return ONLY the post text.",
+        'blog': f"Write a blog post outline for {brand.display_name} about: {topic or 'industry trends'}. "
+                f"Brand: {brand.description or 'technology company'}. "
+                f"Return a JSON object with keys: title, summary, sections (array of heading+points), cta.",
+        'email': f"Write a marketing email for {brand.display_name} about: {topic or 'product update'}. "
+                 f"Brand: {brand.description or 'technology company'}. "
+                 f"Return a JSON object with keys: subject, preview_text, body, cta_text, cta_url_placeholder.",
+    }
+
+    prompt = type_prompts.get(content_type, type_prompts['social_post'])
+
+    try:
+        resp = ext_requests.post(f'{ai_url}/api/generate', json={
+            'model': ai_model,
+            'prompt': prompt,
+            'stream': False,
+            'options': {'temperature': 0.7, 'num_predict': 1500}
+        }, timeout=120)
+
+        if resp.status_code == 200:
+            content = resp.json().get('response', '').strip()
+            return jsonify({'success': True, 'content': content, 'model': ai_model})
+        else:
+            return jsonify({'success': False, 'error': f'AI returned {resp.status_code}'}), 502
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 502
+
+
+def _generate_content_plan(brand, ai_url, ai_model, topic, num_items, campaign_id):
+    """Generate a multi-item content plan with scheduled tasks"""
+    import requests as ext_requests
+
+    prompt = f"""Create a {num_items}-item content calendar plan for {brand.display_name}.
+Brand: {brand.description or 'technology company'}
+Website: {brand.website_url or ''}
+Topic/theme: {topic or 'brand growth and awareness'}
+
+Return ONLY a valid JSON array. Each item must have these exact keys:
+- "task_name": short descriptive name (max 60 chars)
+- "platform": one of: TWITTER, LINKEDIN, REDDIT, YOUTUBE, DEVTO, WEBSITE, EMAIL
+- "task_type": one of: SOCIAL_POST, ARTICLE, VIDEO, EMAIL
+- "title": the content title or headline
+- "body": brief content description or draft (2-3 sentences)
+- "priority": one of: LOW, MEDIUM, HIGH
+- "day_offset": number of days from today to schedule (0 = today, 1 = tomorrow, etc.)
+
+Example: [{{"task_name":"LinkedIn thought leadership","platform":"LINKEDIN","task_type":"SOCIAL_POST","title":"Why AI changes everything","body":"Draft content...","priority":"HIGH","day_offset":1}}]
+
+Return ONLY the JSON array, no extra text."""
+
+    try:
+        resp = ext_requests.post(f'{ai_url}/api/generate', json={
+            'model': ai_model,
+            'prompt': prompt,
+            'stream': False,
+            'options': {'temperature': 0.7, 'num_predict': 3000}
+        }, timeout=180)
+
+        if resp.status_code != 200:
+            return jsonify({'success': False, 'error': f'AI returned {resp.status_code}'}), 502
+
+        raw = resp.json().get('response', '').strip()
+
+        # Try to extract JSON from the response
+        items = _extract_json_array(raw)
+        if not items:
+            return jsonify({'success': False, 'error': 'AI did not return valid JSON', 'raw': raw[:500]}), 422
+
+        # If a campaign_id is provided, create the tasks in the database
+        created = []
+        if campaign_id:
+            for item in items:
+                try:
+                    offset = int(item.get('day_offset', 0))
+                    scheduled = datetime.utcnow() + timedelta(days=offset)
+                    platform_str = item.get('platform', 'TWITTER').upper()
+                    task_type_str = item.get('task_type', 'SOCIAL_POST').upper()
+
+                    task = MarketingTask(
+                        calendar_id=campaign_id,
+                        brand_name=brand.name,
+                        task_name=item.get('task_name', 'AI Generated Task')[:100],
+                        task_slug=item.get('task_name', 'ai-task').lower().replace(' ', '-')[:100],
+                        task_type=TaskType[task_type_str] if task_type_str in TaskType.__members__ else TaskType.SOCIAL_POST,
+                        platform=PlatformType[platform_str] if platform_str in PlatformType.__members__ else PlatformType.TWITTER,
+                        scheduled_date=scheduled,
+                        status=TaskStatus.DRAFT,
+                        priority=TaskPriority[item.get('priority', 'MEDIUM').upper()] if item.get('priority', 'MEDIUM').upper() in TaskPriority.__members__ else TaskPriority.MEDIUM,
+                        title=item.get('title', ''),
+                        body=item.get('body', ''),
+                        is_automated=True
+                    )
+                    db.session.add(task)
+                    db.session.flush()
+                    created.append({'id': task.id, 'task_name': task.task_name, 'platform': task.platform.value})
+                except Exception as te:
+                    continue
+
+            db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'items': items,
+            'created_count': len(created),
+            'created_tasks': created,
+            'model': ai_model
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 502
+
+
+def _extract_json_array(text):
+    """Try to extract a JSON array from AI response text"""
+    # Try direct parse first
+    try:
+        result = json.loads(text)
+        if isinstance(result, list):
+            return result
+    except json.JSONDecodeError:
+        pass
+
+    # Try to find [...] in the text
+    start = text.find('[')
+    end = text.rfind(']')
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(text[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+
+    return None

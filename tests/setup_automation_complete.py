@@ -42,12 +42,12 @@ def check_requirements():
     # Check if Ollama is accessible
     try:
         import requests
-        response = requests.get("http://pop-os2.local:11434/api/tags", timeout=5)
+        response = requests.get("http://localhost:11434/api/tags", timeout=5)
         if response.status_code == 200:
             models = response.json().get('models', [])
             print(f"✅ Ollama connection ({len(models)} models available)")
         else:
-            print("❌ Ollama not accessible at pop-os2.local:11434")
+            print("❌ Ollama not accessible at localhost:11434")
             print("   Make sure Ollama is running and accessible")
             return False
     except Exception as e:
@@ -144,14 +144,14 @@ async def test_ai_integration():
         from automation.ai.ollama_integration import OllamaClient, AIContentGenerator
         
         # Test Ollama connection
-        client = OllamaClient("http://pop-os2.local:11434")
+        client = OllamaClient("http://localhost:11434")
         connected = await client.test_connection()
         
         if connected:
             print("✅ Ollama connection successful")
             
             # Test content generation
-            generator = AIContentGenerator("http://pop-os2.local:11434")
+            generator = AIContentGenerator("http://localhost:11434")
             brands = list(generator.brand_configs.keys())
             
             if brands:
@@ -273,7 +273,7 @@ def create_dashboard_config():
             'campaign_management': True
         },
         'ai': {
-            'ollama_url': 'http://pop-os2.local:11434',
+            'ollama_url': 'http://localhost:11434',
             'default_model': 'llama3.2:1b',
             'content_generation_enabled': True
         },

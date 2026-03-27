@@ -1,11 +1,13 @@
 # Startup Outreach Bot Configuration
 # Copy this to config.py and update with your settings
 
+import os
+
 # Email Configuration - Using Brevo SMTP
 EMAIL_CONFIG = {
     'service': 'brevo',  # Using Brevo SMTP service
-    'username': '96af72001@smtp-brevo.com',
-    'password': 'F9BCg30JqkyZmVWw',
+    'username': os.getenv('BREVO_SMTP_USER', ''),
+    'password': os.getenv('BREVO_SMTP_PASSWORD', ''),
     'smtp_server': 'smtp-relay.brevo.com',
     'smtp_port': 587,
     'from_name': 'Open Build Foundry Team',

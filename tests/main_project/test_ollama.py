@@ -26,16 +26,16 @@ async def test_ollama_connection():
     print("🔌 Testing Ollama Connection")
     print("-" * 40)
     
-    client = OllamaClient("http://pop-os2.local:11434")
+    client = OllamaClient("http://localhost:11434")
     
     # Test connection
     connected = await client.test_connection()
     if not connected:
-        print("❌ Failed to connect to Ollama at pop-os2.local:11434")
+        print("❌ Failed to connect to Ollama at localhost:11434")
         print("\nTroubleshooting:")
-        print("1. Make sure Ollama is running on pop-os2.local")
+        print("1. Make sure Ollama is running on localhost")
         print("2. Check if port 11434 is accessible")
-        print("3. Try: curl http://pop-os2.local:11434/api/tags")
+        print("3. Try: curl http://localhost:11434/api/tags")
         return False
     
     # List available models
@@ -59,7 +59,7 @@ async def test_basic_generation():
     print("\n🧠 Testing Basic AI Generation")
     print("-" * 40)
     
-    client = OllamaClient("http://pop-os2.local:11434")
+    client = OllamaClient("http://localhost:11434")
     
     # Simple test prompt
     test_prompt = "Write a brief introduction to AI in software development in 2-3 sentences."
@@ -89,7 +89,7 @@ async def test_brand_content_generation():
     print("\n🎨 Testing Brand-Specific Content Generation")  
     print("-" * 50)
     
-    generator = AIContentGenerator("http://pop-os2.local:11434")
+    generator = AIContentGenerator("http://localhost:11434")
     
     # Test blog post generation
     print("📝 Generating Buildly blog post...")
@@ -159,7 +159,7 @@ async def test_performance_metrics():
     print("\n⚡ Testing Performance Metrics")
     print("-" * 35)
     
-    client = OllamaClient("http://pop-os2.local:11434")
+    client = OllamaClient("http://localhost:11434")
     
     import time
     

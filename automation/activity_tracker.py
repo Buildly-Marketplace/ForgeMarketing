@@ -3,14 +3,20 @@
 Real-Time Activity Tracker
 Tracks all AI content generation, email sends, campaign activities, and dashboard usage
 Provides persistent storage and real-time analytics for the marketing automation dashboard
+
+Supports SQLite, PostgreSQL, and MySQL via SQLAlchemy.
 """
 
-import sqlite3
+import os
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 import logging
+
+from sqlalchemy import (create_engine, text, MetaData, Table, Column, Index,
+                        Integer, String, Float, Boolean, Text, DateTime)
+
 
 class ActivityTracker:
     """
@@ -18,10 +24,28 @@ class ActivityTracker:
     Tracks AI generation, emails, campaigns, dashboard usage, and analytics
     """
     
-    def __init__(self, db_path: str = None):
-        """Initialize activity tracker with database connection"""
-        self.db_path = db_path or str(Path(__file__).parent.parent / 'data' / 'activity_tracker.db')
+    def __init__(self, database_url: str = None):
+        """Initialize activity tracker with database connection
+        
+        Args:
+            database_url: SQLAlchemy database URL. Falls back to DATABASE_URL env var,
+                         then to local SQLite file.
+        """
+        self.database_url = database_url or os.getenv('DATABASE_URL')
+        
+        if self.database_url:
+            # Fix Heroku-style postgres:// -> postgresql://
+            if self.database_url.startswith('postgres://'):
+                self.database_url = self.database_url.replace('postgres://', 'postgresql://', 1)
+        else:
+            db_path = str(Path(__file__).parent.parent / 'data' / 'activity_tracker.db')
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+            self.database_url = f'sqlite:///{db_path}'
+        
+        self.engine = create_engine(self.database_url)
+        self.sa_metadata = MetaData()
         self.logger = self._setup_logging()
+        self._define_tables()
         self._initialize_database()
     
     def _setup_logging(self) -> logging.Logger:
@@ -39,124 +63,103 @@ class ActivityTracker:
         
         return logger
     
-    def _initialize_database(self):
-        """Initialize database tables for activity tracking"""
-        # Ensure data directory exists
-        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
+    def _define_tables(self):
+        """Define table schemas for cross-DB compatibility"""
+        Table('ai_activity', self.sa_metadata,
+            Column('id', Integer, primary_key=True, autoincrement=True),
+            Column('timestamp', DateTime, server_default=text('CURRENT_TIMESTAMP')),
+            Column('brand', String(255), nullable=False),
+            Column('content_type', String(100), nullable=False),
+            Column('template_used', String(255)),
+            Column('prompt_tokens', Integer, default=0),
+            Column('completion_tokens', Integer, default=0),
+            Column('generation_time_ms', Integer, default=0),
+            Column('quality_score', Float, default=0.0),
+            Column('used_in_campaign', Boolean, default=False),
+            Column('campaign_id', String(255)),
+            Column('success', Boolean, default=True),
+            Column('error_message', Text),
+            Column('metadata', Text),
+            Index('idx_ai_brand_time', 'brand', 'timestamp'),
+        )
         
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
-            # AI Content Generation Activity
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS ai_activity (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    brand TEXT NOT NULL,
-                    content_type TEXT NOT NULL,  -- email, social, article, subject
-                    template_used TEXT,
-                    prompt_tokens INTEGER DEFAULT 0,
-                    completion_tokens INTEGER DEFAULT 0,
-                    generation_time_ms INTEGER DEFAULT 0,
-                    quality_score REAL DEFAULT 0.0,
-                    used_in_campaign BOOLEAN DEFAULT FALSE,
-                    campaign_id TEXT,
-                    success BOOLEAN DEFAULT TRUE,
-                    error_message TEXT,
-                    metadata TEXT  -- JSON for additional data
-                )
-            """)
-            
-            # Email Activity Tracking
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS email_activity (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    brand TEXT NOT NULL,
-                    email_type TEXT NOT NULL,  -- outreach, analytics, test, campaign
-                    campaign_id TEXT,
-                    recipient_email TEXT,
-                    subject TEXT,
-                    template_used TEXT,
-                    send_status TEXT DEFAULT 'pending',  -- pending, sent, delivered, failed, bounced
-                    delivery_time TIMESTAMP,
-                    opened BOOLEAN DEFAULT FALSE,
-                    clicked BOOLEAN DEFAULT FALSE,
-                    replied BOOLEAN DEFAULT FALSE,
-                    unsubscribed BOOLEAN DEFAULT FALSE,
-                    service_used TEXT,  -- brevo, mailersend, etc.
-                    message_id TEXT,
-                    error_message TEXT,
-                    metadata TEXT  -- JSON for tracking data
-                )
-            """)
-            
-            # Campaign Activity
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS campaign_activity (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    brand TEXT NOT NULL,
-                    campaign_id TEXT NOT NULL,
-                    campaign_name TEXT,
-                    campaign_type TEXT,  -- outreach, analytics, social, ads
-                    status TEXT DEFAULT 'created',  -- created, running, completed, failed, paused
-                    total_targets INTEGER DEFAULT 0,
-                    emails_sent INTEGER DEFAULT 0,
-                    emails_delivered INTEGER DEFAULT 0,
-                    responses_received INTEGER DEFAULT 0,
-                    conversion_rate REAL DEFAULT 0.0,
-                    budget_spent REAL DEFAULT 0.0,
-                    roi REAL DEFAULT 0.0,
-                    start_time TIMESTAMP,
-                    end_time TIMESTAMP,
-                    metadata TEXT  -- JSON for campaign details
-                )
-            """)
-            
-            # Dashboard Usage Analytics
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS dashboard_activity (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    page_visited TEXT,
-                    action_taken TEXT,  -- view, create, edit, delete, export
-                    brand_context TEXT,
-                    user_agent TEXT,
-                    ip_address TEXT,
-                    session_duration INTEGER DEFAULT 0,  -- seconds
-                    api_endpoint TEXT,
-                    response_time_ms INTEGER DEFAULT 0,
-                    success BOOLEAN DEFAULT TRUE,
-                    error_message TEXT,
-                    metadata TEXT  -- JSON for additional context
-                )
-            """)
-            
-            # System Performance Metrics
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS system_metrics (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    metric_type TEXT NOT NULL,  -- daily_summary, hourly_stats, real_time
-                    metric_name TEXT NOT NULL,
-                    metric_value REAL,
-                    metric_unit TEXT,  -- count, percentage, seconds, bytes
-                    brand_context TEXT,
-                    time_period TEXT,  -- 1h, 24h, 7d, 30d
-                    metadata TEXT  -- JSON for additional data
-                )
-            """)
-            
-            # Create indexes for performance
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_brand_time ON ai_activity (brand, timestamp)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_email_brand_time ON email_activity (brand, timestamp)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_campaign_brand_time ON campaign_activity (brand, timestamp)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_dashboard_time ON dashboard_activity (timestamp)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_metrics_type_time ON system_metrics (metric_type, timestamp)")
-            
-            conn.commit()
-            self.logger.info("✅ Activity tracking database initialized")
+        Table('email_activity', self.sa_metadata,
+            Column('id', Integer, primary_key=True, autoincrement=True),
+            Column('timestamp', DateTime, server_default=text('CURRENT_TIMESTAMP')),
+            Column('brand', String(255), nullable=False),
+            Column('email_type', String(100), nullable=False),
+            Column('campaign_id', String(255)),
+            Column('recipient_email', String(255)),
+            Column('subject', String(500)),
+            Column('template_used', String(255)),
+            Column('send_status', String(50), default='pending'),
+            Column('delivery_time', DateTime),
+            Column('opened', Boolean, default=False),
+            Column('clicked', Boolean, default=False),
+            Column('replied', Boolean, default=False),
+            Column('unsubscribed', Boolean, default=False),
+            Column('service_used', String(100)),
+            Column('message_id', String(255)),
+            Column('error_message', Text),
+            Column('metadata', Text),
+            Index('idx_email_brand_time', 'brand', 'timestamp'),
+        )
+        
+        Table('campaign_activity', self.sa_metadata,
+            Column('id', Integer, primary_key=True, autoincrement=True),
+            Column('timestamp', DateTime, server_default=text('CURRENT_TIMESTAMP')),
+            Column('brand', String(255), nullable=False),
+            Column('campaign_id', String(255), nullable=False),
+            Column('campaign_name', String(255)),
+            Column('campaign_type', String(100)),
+            Column('status', String(50), default='created'),
+            Column('total_targets', Integer, default=0),
+            Column('emails_sent', Integer, default=0),
+            Column('emails_delivered', Integer, default=0),
+            Column('responses_received', Integer, default=0),
+            Column('conversion_rate', Float, default=0.0),
+            Column('budget_spent', Float, default=0.0),
+            Column('roi', Float, default=0.0),
+            Column('start_time', DateTime),
+            Column('end_time', DateTime),
+            Column('metadata', Text),
+            Index('idx_campaign_brand_time', 'brand', 'timestamp'),
+        )
+        
+        Table('dashboard_activity', self.sa_metadata,
+            Column('id', Integer, primary_key=True, autoincrement=True),
+            Column('timestamp', DateTime, server_default=text('CURRENT_TIMESTAMP')),
+            Column('page_visited', String(255)),
+            Column('action_taken', String(100)),
+            Column('brand_context', String(255)),
+            Column('user_agent', Text),
+            Column('ip_address', String(45)),
+            Column('session_duration', Integer, default=0),
+            Column('api_endpoint', String(255)),
+            Column('response_time_ms', Integer, default=0),
+            Column('success', Boolean, default=True),
+            Column('error_message', Text),
+            Column('metadata', Text),
+            Index('idx_dashboard_time', 'timestamp'),
+        )
+        
+        Table('system_metrics', self.sa_metadata,
+            Column('id', Integer, primary_key=True, autoincrement=True),
+            Column('timestamp', DateTime, server_default=text('CURRENT_TIMESTAMP')),
+            Column('metric_type', String(100), nullable=False),
+            Column('metric_name', String(255), nullable=False),
+            Column('metric_value', Float),
+            Column('metric_unit', String(50)),
+            Column('brand_context', String(255)),
+            Column('time_period', String(20)),
+            Column('metadata', Text),
+            Index('idx_metrics_type_time', 'metric_type', 'timestamp'),
+        )
+    
+    def _initialize_database(self):
+        """Create all tables if they don't exist"""
+        self.sa_metadata.create_all(self.engine)
+        self.logger.info("✅ Activity tracking database initialized")
     
     # AI Activity Tracking
     def track_ai_generation(self, brand: str, content_type: str, template_used: str = None, 
@@ -165,20 +168,21 @@ class ActivityTracker:
                            success: bool = True, error_message: str = None, 
                            metadata: Dict = None) -> int:
         """Track AI content generation activity"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
+        with self.engine.begin() as conn:
+            result = conn.execute(text("""
                 INSERT INTO ai_activity 
                 (brand, content_type, template_used, prompt_tokens, completion_tokens, 
                  generation_time_ms, quality_score, success, error_message, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                brand, content_type, template_used, prompt_tokens, completion_tokens,
-                generation_time_ms, quality_score, success, error_message,
-                json.dumps(metadata) if metadata else None
-            ))
-            activity_id = cursor.lastrowid
-            conn.commit()
+                VALUES (:brand, :content_type, :template_used, :prompt_tokens, :completion_tokens,
+                        :generation_time_ms, :quality_score, :success, :error_message, :metadata)
+            """), {
+                'brand': brand, 'content_type': content_type, 'template_used': template_used,
+                'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens,
+                'generation_time_ms': generation_time_ms, 'quality_score': quality_score,
+                'success': success, 'error_message': error_message,
+                'metadata': json.dumps(metadata) if metadata else None
+            })
+            activity_id = result.lastrowid or 0
             
         self.logger.info(f"🤖 Tracked AI generation: {brand} - {content_type}")
         return activity_id
@@ -189,20 +193,21 @@ class ActivityTracker:
                         send_status: str = 'sent', message_id: str = None,
                         error_message: str = None, metadata: Dict = None) -> int:
         """Track email sending activity"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
+        with self.engine.begin() as conn:
+            result = conn.execute(text("""
                 INSERT INTO email_activity 
                 (brand, email_type, campaign_id, recipient_email, subject, template_used,
                  send_status, service_used, message_id, error_message, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                brand, email_type, campaign_id, recipient_email, subject, template_used,
-                send_status, service_used, message_id, error_message,
-                json.dumps(metadata) if metadata else None
-            ))
-            activity_id = cursor.lastrowid
-            conn.commit()
+                VALUES (:brand, :email_type, :campaign_id, :recipient_email, :subject, :template_used,
+                        :send_status, :service_used, :message_id, :error_message, :metadata)
+            """), {
+                'brand': brand, 'email_type': email_type, 'campaign_id': campaign_id,
+                'recipient_email': recipient_email, 'subject': subject, 'template_used': template_used,
+                'send_status': send_status, 'service_used': service_used, 'message_id': message_id,
+                'error_message': error_message,
+                'metadata': json.dumps(metadata) if metadata else None
+            })
+            activity_id = result.lastrowid or 0
             
         self.logger.info(f"📧 Tracked email send: {brand} - {email_type} to {recipient_email}")
         return activity_id
@@ -212,35 +217,40 @@ class ActivityTracker:
                                total_targets: int = 0, emails_sent: int = 0,
                                metadata: Dict = None) -> int:
         """Track campaign creation and updates"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
+        with self.engine.begin() as conn:
             # Check if campaign already exists
-            cursor.execute("SELECT id FROM campaign_activity WHERE campaign_id = ?", (campaign_id,))
-            existing = cursor.fetchone()
+            result = conn.execute(
+                text("SELECT id FROM campaign_activity WHERE campaign_id = :campaign_id"),
+                {'campaign_id': campaign_id}
+            )
+            existing = result.fetchone()
             
             if existing:
-                # Update existing campaign
-                cursor.execute("""
+                conn.execute(text("""
                     UPDATE campaign_activity SET
-                    status = ?, total_targets = ?, emails_sent = ?, 
-                    metadata = ?, timestamp = CURRENT_TIMESTAMP
-                    WHERE campaign_id = ?
-                """, (status, total_targets, emails_sent, 
-                     json.dumps(metadata) if metadata else None, campaign_id))
+                    status = :status, total_targets = :total_targets, emails_sent = :emails_sent, 
+                    metadata = :metadata, timestamp = CURRENT_TIMESTAMP
+                    WHERE campaign_id = :campaign_id
+                """), {
+                    'status': status, 'total_targets': total_targets, 'emails_sent': emails_sent,
+                    'metadata': json.dumps(metadata) if metadata else None,
+                    'campaign_id': campaign_id
+                })
                 activity_id = existing[0]
             else:
-                # Create new campaign record
-                cursor.execute("""
+                result = conn.execute(text("""
                     INSERT INTO campaign_activity 
                     (brand, campaign_id, campaign_name, campaign_type, status,
                      total_targets, emails_sent, metadata)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (brand, campaign_id, campaign_name, campaign_type, status,
-                     total_targets, emails_sent, json.dumps(metadata) if metadata else None))
-                activity_id = cursor.lastrowid
-                
-            conn.commit()
+                    VALUES (:brand, :campaign_id, :campaign_name, :campaign_type, :status,
+                            :total_targets, :emails_sent, :metadata)
+                """), {
+                    'brand': brand, 'campaign_id': campaign_id, 'campaign_name': campaign_name,
+                    'campaign_type': campaign_type, 'status': status,
+                    'total_targets': total_targets, 'emails_sent': emails_sent,
+                    'metadata': json.dumps(metadata) if metadata else None
+                })
+                activity_id = result.lastrowid or 0
             
         self.logger.info(f"📊 Tracked campaign activity: {brand} - {campaign_id} ({status})")
         return activity_id
@@ -250,18 +260,21 @@ class ActivityTracker:
                              response_time_ms: int = 0, success: bool = True,
                              error_message: str = None, metadata: Dict = None) -> int:
         """Track dashboard usage and interactions"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
+        with self.engine.begin() as conn:
+            result = conn.execute(text("""
                 INSERT INTO dashboard_activity 
                 (page_visited, action_taken, brand_context, api_endpoint,
                  response_time_ms, success, error_message, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (page_visited, action_taken, brand_context, api_endpoint,
-                 response_time_ms, success, error_message,
-                 json.dumps(metadata) if metadata else None))
-            activity_id = cursor.lastrowid
-            conn.commit()
+                VALUES (:page_visited, :action_taken, :brand_context, :api_endpoint,
+                        :response_time_ms, :success, :error_message, :metadata)
+            """), {
+                'page_visited': page_visited, 'action_taken': action_taken,
+                'brand_context': brand_context, 'api_endpoint': api_endpoint,
+                'response_time_ms': response_time_ms, 'success': success,
+                'error_message': error_message,
+                'metadata': json.dumps(metadata) if metadata else None
+            })
+            activity_id = result.lastrowid or 0
             
         return activity_id
     
@@ -270,39 +283,40 @@ class ActivityTracker:
                             brand_context: str = None, time_period: str = '24h',
                             metadata: Dict = None):
         """Update system performance metrics"""
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
+        with self.engine.begin() as conn:
+            conn.execute(text("""
                 INSERT INTO system_metrics 
                 (metric_type, metric_name, metric_value, metric_unit,
                  brand_context, time_period, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (metric_type, metric_name, metric_value, metric_unit,
-                 brand_context, time_period, json.dumps(metadata) if metadata else None))
-            conn.commit()
+                VALUES (:metric_type, :metric_name, :metric_value, :metric_unit,
+                        :brand_context, :time_period, :metadata)
+            """), {
+                'metric_type': metric_type, 'metric_name': metric_name,
+                'metric_value': metric_value, 'metric_unit': metric_unit,
+                'brand_context': brand_context, 'time_period': time_period,
+                'metadata': json.dumps(metadata) if metadata else None
+            })
     
     # Analytics and Reporting Methods
     def get_real_time_dashboard_data(self, hours_back: int = 24) -> Dict[str, Any]:
         """Get real-time dashboard data for the specified time period"""
         cutoff_time = datetime.now() - timedelta(hours=hours_back)
         
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
+        with self.engine.connect() as conn:
             # AI Generation Stats
-            cursor.execute("""
+            result = conn.execute(text("""
                 SELECT brand, COUNT(*) as generations, 
                        AVG(prompt_tokens + completion_tokens) as avg_tokens,
                        AVG(generation_time_ms) as avg_time_ms,
                        AVG(quality_score) as avg_quality,
-                       SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_generations
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful_generations
                 FROM ai_activity 
-                WHERE timestamp >= ? 
+                WHERE timestamp >= :cutoff
                 GROUP BY brand
-            """, (cutoff_time,))
+            """), {'cutoff': cutoff_time})
             
             ai_stats = {}
-            for row in cursor.fetchall():
+            for row in result.fetchall():
                 brand, generations, avg_tokens, avg_time_ms, avg_quality, successful = row
                 ai_stats[brand] = {
                     'total_generations': generations,
@@ -313,18 +327,18 @@ class ActivityTracker:
                 }
             
             # Email Activity Stats
-            cursor.execute("""
+            result = conn.execute(text("""
                 SELECT brand, email_type, COUNT(*) as count,
                        SUM(CASE WHEN send_status = 'delivered' THEN 1 ELSE 0 END) as delivered,
-                       SUM(CASE WHEN opened = 1 THEN 1 ELSE 0 END) as opened,
-                       SUM(CASE WHEN clicked = 1 THEN 1 ELSE 0 END) as clicked
+                       SUM(CASE WHEN opened THEN 1 ELSE 0 END) as opened,
+                       SUM(CASE WHEN clicked THEN 1 ELSE 0 END) as clicked
                 FROM email_activity 
-                WHERE timestamp >= ? 
+                WHERE timestamp >= :cutoff
                 GROUP BY brand, email_type
-            """, (cutoff_time,))
+            """), {'cutoff': cutoff_time})
             
             email_stats = {}
-            for row in cursor.fetchall():
+            for row in result.fetchall():
                 brand, email_type, count, delivered, opened, clicked = row
                 if brand not in email_stats:
                     email_stats[brand] = {}
@@ -340,18 +354,18 @@ class ActivityTracker:
                 }
             
             # Campaign Stats
-            cursor.execute("""
+            result = conn.execute(text("""
                 SELECT brand, COUNT(*) as campaigns,
                        SUM(emails_sent) as total_emails,
                        SUM(responses_received) as total_responses,
                        AVG(conversion_rate) as avg_conversion_rate
                 FROM campaign_activity 
-                WHERE timestamp >= ? 
+                WHERE timestamp >= :cutoff
                 GROUP BY brand
-            """, (cutoff_time,))
+            """), {'cutoff': cutoff_time})
             
             campaign_stats = {}
-            for row in cursor.fetchall():
+            for row in result.fetchall():
                 brand, campaigns, total_emails, total_responses, avg_conversion_rate = row
                 campaign_stats[brand] = {
                     'active_campaigns': campaigns,
@@ -362,16 +376,16 @@ class ActivityTracker:
                 }
             
             # Dashboard Usage Stats
-            cursor.execute("""
+            result = conn.execute(text("""
                 SELECT COUNT(*) as page_views,
                        COUNT(DISTINCT page_visited) as unique_pages,
                        AVG(response_time_ms) as avg_response_time,
-                       SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successful_requests
+                       SUM(CASE WHEN success THEN 1 ELSE 0 END) as successful_requests
                 FROM dashboard_activity 
-                WHERE timestamp >= ?
-            """, (cutoff_time,))
+                WHERE timestamp >= :cutoff
+            """), {'cutoff': cutoff_time})
             
-            dashboard_stats = cursor.fetchone()
+            dashboard_stats = result.fetchone()
             page_views, unique_pages, avg_response_time, successful_requests = dashboard_stats
             
             # Overall Summary
@@ -388,7 +402,7 @@ class ActivityTracker:
                     'success_rate': round((successful_requests / page_views * 100) if page_views > 0 else 0, 2)
                 },
                 'system_health': {
-                    'database_path': self.db_path,
+                    'database_url': self.database_url.split('@')[-1] if '@' in self.database_url else self.database_url,
                     'data_collection_active': True,
                     'last_updated': datetime.now().isoformat()
                 }
@@ -400,21 +414,19 @@ class ActivityTracker:
         """Get comprehensive activity summary for a specific brand"""
         cutoff_time = datetime.now() - timedelta(days=days_back)
         
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.cursor()
-            
+        with self.engine.connect() as conn:
             # AI Generation Activity
-            cursor.execute("""
+            result = conn.execute(text("""
                 SELECT content_type, COUNT(*) as count,
                        AVG(quality_score) as avg_quality,
                        SUM(prompt_tokens + completion_tokens) as total_tokens
                 FROM ai_activity 
-                WHERE brand = ? AND timestamp >= ?
+                WHERE brand = :brand AND timestamp >= :cutoff
                 GROUP BY content_type
-            """, (brand, cutoff_time))
+            """), {'brand': brand, 'cutoff': cutoff_time})
             
             ai_activity = {}
-            for row in cursor.fetchall():
+            for row in result.fetchall():
                 content_type, count, avg_quality, total_tokens = row
                 ai_activity[content_type] = {
                     'generations': count,
@@ -423,17 +435,17 @@ class ActivityTracker:
                 }
             
             # Email Activity
-            cursor.execute("""
+            result = conn.execute(text("""
                 SELECT email_type, COUNT(*) as sent,
                        SUM(CASE WHEN send_status = 'delivered' THEN 1 ELSE 0 END) as delivered,
-                       SUM(CASE WHEN opened = 1 THEN 1 ELSE 0 END) as opened
+                       SUM(CASE WHEN opened THEN 1 ELSE 0 END) as opened
                 FROM email_activity 
-                WHERE brand = ? AND timestamp >= ?
+                WHERE brand = :brand AND timestamp >= :cutoff
                 GROUP BY email_type
-            """, (brand, cutoff_time))
+            """), {'brand': brand, 'cutoff': cutoff_time})
             
             email_activity = {}
-            for row in cursor.fetchall():
+            for row in result.fetchall():
                 email_type, sent, delivered, opened = row
                 email_activity[email_type] = {
                     'sent': sent,
@@ -443,16 +455,16 @@ class ActivityTracker:
                 }
             
             # Campaign Activity
-            cursor.execute("""
+            result = conn.execute(text("""
                 SELECT COUNT(*) as campaigns,
                        SUM(total_targets) as targets,
                        SUM(emails_sent) as emails,
                        SUM(responses_received) as responses
                 FROM campaign_activity 
-                WHERE brand = ? AND timestamp >= ?
-            """, (brand, cutoff_time))
+                WHERE brand = :brand AND timestamp >= :cutoff
+            """), {'brand': brand, 'cutoff': cutoff_time})
             
-            campaign_data = cursor.fetchone()
+            campaign_data = result.fetchone()
             campaigns, targets, emails, responses = campaign_data
             
             return {
@@ -465,7 +477,7 @@ class ActivityTracker:
                     'total_targets': targets or 0,
                     'total_emails': emails or 0,
                     'total_responses': responses or 0,
-                    'response_rate': round((responses / emails * 100) if emails > 0 else 0, 2)
+                    'response_rate': round((responses / emails * 100) if emails or 0 > 0 else 0, 2)
                 },
                 'last_updated': datetime.now().isoformat()
             }

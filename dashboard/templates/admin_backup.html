@@ -411,7 +411,7 @@
                     <div class="ml-3">
                         <h3 class="text-sm font-medium text-purple-800">AI Service Status</h3>
                         <div class="mt-2 text-sm text-purple-700">
-                            <p>Testing connection to Ollama AI service at pop-os2.local:11434</p>
+                            <p>Testing connection to Ollama AI service</p>
                             <p>Available models: llama3.2:1b, qwen:7b, phi3:3.8b, llava:7b</p>
                         </div>
                     </div>
@@ -421,7 +421,7 @@
             <div class="bg-gray-50 p-4 rounded-lg">
                 <h4 class="font-medium text-gray-900 mb-2">Current Configuration:</h4>
                 <div class="space-y-2 text-sm text-gray-700">
-                    <div>Host: <span class="font-mono bg-gray-200 px-2 py-1 rounded">pop-os2.local:11434</span></div>
+                    <div>Host: <span class="font-mono bg-gray-200 px-2 py-1 rounded">localhost:11434</span></div>
                     <div>Default Model: <span class="font-mono bg-gray-200 px-2 py-1 rounded">llama3.2:1b</span></div>
                     <div>Status: <span x-text="connectionStatus.ai ? '✅ Connected' : '❌ Disconnected'" 
                               :class="connectionStatus.ai ? 'text-green-600' : 'text-red-600'" class="font-medium"></span></div>

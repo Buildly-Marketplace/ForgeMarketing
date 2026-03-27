@@ -13,7 +13,15 @@ class DatabaseManager:
     
     def __init__(self, app):
         self.app = app
-        self.db_path = Path(app.config.get('SQLALCHEMY_DATABASE_URI', 'sqlite:///dashboard.db').replace('sqlite:///', ''))
+        self._db_uri = app.config.get('SQLALCHEMY_DATABASE_URI', '')
+        self._is_sqlite = self._db_uri.startswith('sqlite')
+    
+    @property
+    def db_path(self):
+        """Get the SQLite file path (only meaningful for SQLite databases)"""
+        if self._is_sqlite:
+            return Path(self._db_uri.replace('sqlite:///', ''))
+        return None
     
     def init_db(self) -> bool:
         """Initialize database with schema (no default brands)"""
@@ -158,9 +166,12 @@ class DatabaseManager:
     
     @staticmethod
     def backup_db(source_path: str, backup_path: str) -> bool:
-        """Backup SQLite database"""
+        """Backup SQLite database file. For PostgreSQL/MySQL, use native dump tools."""
         try:
             import shutil
+            if not os.path.exists(source_path):
+                print(f"⚠️  Source database not found: {source_path}")
+                return False
             shutil.copy(source_path, backup_path)
             print(f"✅ Database backed up to {backup_path}")
             return True

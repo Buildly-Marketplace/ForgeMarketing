@@ -1,0 +1,779 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-6" x-data="contentCalendar()" x-init="init()">
+    <!-- Header -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">📅 Content Calendar</h1>
+                <p class="text-gray-600 mt-1">Plan, create, and schedule content across all channels</p>
+            </div>
+            <div class="flex gap-3">
+                <button @click="showAIPanel = true" class="bg-purple-600 text-white px-5 py-2.5 rounded-lg hover:bg-purple-700 flex items-center text-sm font-semibold">
+                    <i class="fas fa-robot mr-2"></i> AI Generate
+                </button>
+                <button @click="openNewTask()" class="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 flex items-center text-sm font-semibold">
+                    <i class="fas fa-plus mr-2"></i> New Task
+                </button>
+                <button @click="openNewCampaign()" class="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 flex items-center text-sm font-semibold">
+                    <i class="fas fa-bullhorn mr-2"></i> New Campaign
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters & View Switcher -->
+    <div class="bg-white rounded-lg p-4 card-shadow">
+        <div class="flex flex-wrap items-center gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Brand</label>
+                <select x-model="filters.brand" @change="reload()"
+                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">All Brands</option>
+                    <template x-for="b in brands" :key="b.name">
+                        <option :value="b.name" x-text="b.display_name"></option>
+                    </template>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Campaign</label>
+                <select x-model="filters.campaign" @change="reload()"
+                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">All Campaigns</option>
+                    <template x-for="c in campaigns" :key="c.id">
+                        <option :value="c.id" x-text="c.campaign_name"></option>
+                    </template>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Status</label>
+                <select x-model="filters.status" @change="reload()"
+                    class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500">
+                    <option value="">All</option>
+                    <option value="DRAFT">Draft</option>
+                    <option value="SCHEDULED">Scheduled</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="COMPLETED">Completed</option>
+                </select>
+            </div>
+            <div class="ml-auto flex gap-2">
+                <button @click="viewMode='calendar'" :class="viewMode==='calendar' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'" class="px-4 py-2 rounded-lg text-sm font-medium">
+                    <i class="fas fa-calendar-alt mr-1"></i> Calendar
+                </button>
+                <button @click="viewMode='list'" :class="viewMode==='list' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'" class="px-4 py-2 rounded-lg text-sm font-medium">
+                    <i class="fas fa-list mr-1"></i> List
+                </button>
+                <button @click="viewMode='board'" :class="viewMode==='board' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'" class="px-4 py-2 rounded-lg text-sm font-medium">
+                    <i class="fas fa-columns mr-1"></i> Board
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ CALENDAR VIEW ============ -->
+    <template x-if="viewMode === 'calendar'">
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <div class="flex justify-between items-center mb-4">
+                <button @click="changeMonth(-1)" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300"><i class="fas fa-chevron-left"></i></button>
+                <h2 class="text-xl font-bold" x-text="monthTitle"></h2>
+                <button @click="changeMonth(1)" class="px-3 py-2 bg-gray-200 rounded hover:bg-gray-300"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="grid grid-cols-7 gap-px bg-gray-200 border border-gray-200 rounded-lg overflow-hidden">
+                <template x-for="d in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']">
+                    <div class="bg-gray-50 text-center text-xs font-semibold text-gray-600 py-2" x-text="d"></div>
+                </template>
+                <template x-for="cell in calendarCells" :key="cell.key">
+                    <div :class="cell.inMonth ? 'bg-white' : 'bg-gray-50'"
+                         class="min-h-[110px] p-1.5 cursor-pointer hover:bg-blue-50 relative"
+                         @click="openNewTask(cell.date)">
+                        <span class="text-xs font-medium" :class="cell.isToday ? 'bg-blue-600 text-white rounded-full px-1.5 py-0.5' : (cell.inMonth ? 'text-gray-700' : 'text-gray-400')"
+                              x-text="cell.day"></span>
+                        <div class="mt-1 space-y-0.5 overflow-y-auto max-h-[80px]">
+                            <template x-for="t in tasksOnDate(cell.date)" :key="t.id">
+                                <div class="text-xs px-1.5 py-0.5 rounded truncate cursor-pointer"
+                                     :class="platformColor(t.platform)"
+                                     @click.stop="openEditTask(t)"
+                                     x-text="t.title || t.task_name"></div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+
+    <!-- ============ LIST VIEW ============ -->
+    <template x-if="viewMode === 'list'">
+        <div class="bg-white rounded-lg card-shadow overflow-hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-600">DATE</th>
+                        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-600">TASK</th>
+                        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-600">PLATFORM</th>
+                        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-600">STATUS</th>
+                        <th class="text-left px-4 py-3 text-xs font-semibold text-gray-600">PRIORITY</th>
+                        <th class="px-4 py-3"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="t in filteredTasks" :key="t.id">
+                        <tr class="border-b hover:bg-gray-50 cursor-pointer" @click="openEditTask(t)">
+                            <td class="px-4 py-3 text-gray-600" x-text="formatDate(t.scheduled_date)"></td>
+                            <td class="px-4 py-3 font-medium text-gray-900" x-text="t.title || t.task_name"></td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium" :class="platformColor(t.platform)" x-text="t.platform"></span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-0.5 rounded-full text-xs font-medium" :class="statusColor(t.status)" x-text="t.status.replace('_',' ')"></span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="text-xs font-medium" :class="priorityColor(t.priority)" x-text="t.priority"></span>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <button @click.stop="deleteTask(t)" class="text-red-400 hover:text-red-600"><i class="fas fa-trash text-xs"></i></button>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+            <div x-show="filteredTasks.length === 0" class="text-center py-12 text-gray-400">
+                <i class="fas fa-calendar-plus text-4xl mb-3"></i>
+                <p>No tasks yet. Create one or use AI Generate!</p>
+            </div>
+        </div>
+    </template>
+
+    <!-- ============ BOARD VIEW ============ -->
+    <template x-if="viewMode === 'board'">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <template x-for="col in boardColumns" :key="col.status">
+                <div class="rounded-lg p-3" :class="col.bg">
+                    <h3 class="font-bold text-sm mb-3 flex items-center">
+                        <span class="w-2.5 h-2.5 rounded-full mr-2" :class="col.dot"></span>
+                        <span x-text="col.label"></span>
+                        <span class="ml-auto bg-white rounded-full px-2 py-0.5 text-xs" x-text="tasksByStatus(col.status).length"></span>
+                    </h3>
+                    <div class="space-y-2">
+                        <template x-for="t in tasksByStatus(col.status)" :key="t.id">
+                            <div class="bg-white p-3 rounded-lg shadow-sm border-l-4 cursor-pointer hover:shadow-md transition"
+                                 :class="col.border"
+                                 @click="openEditTask(t)">
+                                <p class="font-medium text-sm text-gray-900" x-text="t.title || t.task_name"></p>
+                                <div class="flex items-center justify-between mt-2">
+                                    <span class="px-2 py-0.5 rounded-full text-xs" :class="platformColor(t.platform)" x-text="t.platform"></span>
+                                    <span class="text-xs text-gray-500" x-text="formatDate(t.scheduled_date)"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </template>
+
+    <!-- ============ CAMPAIGNS SECTION ============ -->
+    <div class="bg-white rounded-lg p-6 card-shadow" x-show="campaigns.length > 0">
+        <h2 class="text-lg font-bold mb-4 text-gray-900"><i class="fas fa-bullhorn mr-2 text-green-600"></i>Campaigns</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <template x-for="c in campaigns" :key="c.id">
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="font-bold text-gray-900" x-text="c.campaign_name"></h3>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium" :class="statusColor(c.status)" x-text="c.status"></span>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-3" x-text="c.description"></p>
+                    <div class="flex justify-between text-xs text-gray-600 mb-2">
+                        <span x-text="c.task_count + ' tasks'"></span>
+                        <span x-text="c.completed_tasks + ' done'"></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5 mb-3">
+                        <div class="bg-blue-600 h-1.5 rounded-full transition-all" :style="`width:${c.task_count ? Math.round(c.completed_tasks/c.task_count*100) : 0}%`"></div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button @click="filters.campaign = c.id; reload()" class="flex-1 text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">View Tasks</button>
+                        <button @click="editCampaign(c)" class="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded hover:bg-gray-200"><i class="fas fa-edit"></i></button>
+                        <button @click="deleteCampaign(c)" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ============ TASK MODAL (Create/Edit) ============ -->
+    <div x-show="showTaskModal" x-transition @click.self="showTaskModal=false"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between p-5 border-b">
+                <h2 class="text-lg font-bold" x-text="editingTask.id ? 'Edit Task' : 'New Task'"></h2>
+                <button @click="showTaskModal=false" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Task Name *</label>
+                    <input type="text" x-model="editingTask.task_name" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500" placeholder="e.g., LinkedIn thought leadership post">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Platform *</label>
+                        <select x-model="editingTask.platform" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <template x-for="p in platforms" :key="p">
+                                <option :value="p" x-text="p"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                        <select x-model="editingTask.task_type" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="SOCIAL_POST">Social Post</option>
+                            <option value="ARTICLE">Article</option>
+                            <option value="VIDEO">Video</option>
+                            <option value="EMAIL">Email</option>
+                            <option value="PAID_AD">Paid Ad</option>
+                            <option value="WEBINAR">Webinar</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Scheduled Date *</label>
+                        <input type="date" x-model="editingTask.scheduled_date" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                        <select x-model="editingTask.priority" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="LOW">Low</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="HIGH">High</option>
+                            <option value="CRITICAL">Critical</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Campaign</label>
+                    <select x-model="editingTask.calendar_id" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <template x-for="c in campaigns" :key="c.id">
+                            <option :value="c.id" x-text="c.campaign_name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Title / Headline</label>
+                    <input type="text" x-model="editingTask.title" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Content title or headline">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Content / Body</label>
+                    <textarea x-model="editingTask.body" rows="4" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Write content or paste AI-generated text here..."></textarea>
+                    <button @click="aiDraftContent()" class="mt-1 text-xs text-purple-600 hover:text-purple-800 font-medium">
+                        <i class="fas fa-robot mr-1"></i> Generate with AI
+                    </button>
+                    <span x-show="aiDrafting" class="text-xs text-gray-400 ml-2"><i class="fas fa-spinner fa-spin"></i> Generating...</span>
+                </div>
+                <div x-show="editingTask.id" class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <select x-model="editingTask.status" class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="DRAFT">Draft</option>
+                            <option value="SCHEDULED">Scheduled</option>
+                            <option value="IN_PROGRESS">In Progress</option>
+                            <option value="COMPLETED">Completed</option>
+                            <option value="CANCELLED">Cancelled</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+                        <input type="text" x-model="editingTask.assigned_to" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-3 justify-end p-5 border-t bg-gray-50 rounded-b-xl">
+                <button @click="showTaskModal=false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300">Cancel</button>
+                <template x-if="editingTask.id">
+                    <button @click="deleteTask(editingTask)" class="px-4 py-2 bg-red-100 text-red-600 rounded-lg text-sm hover:bg-red-200">Delete</button>
+                </template>
+                <button @click="saveTask()" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 font-medium" x-text="editingTask.id ? 'Update Task' : 'Create Task'"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ CAMPAIGN MODAL ============ -->
+    <div x-show="showCampaignModal" x-transition @click.self="showCampaignModal=false"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl max-w-lg w-full">
+            <div class="flex items-center justify-between p-5 border-b">
+                <h2 class="text-lg font-bold" x-text="editingCampaign.id ? 'Edit Campaign' : 'New Campaign'"></h2>
+                <button @click="showCampaignModal=false" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Campaign Name *</label>
+                    <input type="text" x-model="editingCampaign.campaign_name" class="w-full px-3 py-2 border rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                    <textarea x-model="editingCampaign.description" rows="2" class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
+                        <input type="date" x-model="editingCampaign.start_date" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
+                        <input type="date" x-model="editingCampaign.end_date" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Goal</label>
+                        <input type="text" x-model="editingCampaign.goal" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g., 1000 signups">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Budget ($)</label>
+                        <input type="number" x-model.number="editingCampaign.budget" class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select x-model="editingCampaign.status" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="draft">Draft</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex gap-3 justify-end p-5 border-t bg-gray-50 rounded-b-xl">
+                <button @click="showCampaignModal=false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300">Cancel</button>
+                <button @click="saveCampaign()" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 font-medium" x-text="editingCampaign.id ? 'Update' : 'Create Campaign'"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============ AI GENERATE PANEL ============ -->
+    <div x-show="showAIPanel" x-transition @click.self="showAIPanel=false"
+         class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl max-w-lg w-full">
+            <div class="flex items-center justify-between p-5 border-b">
+                <h2 class="text-lg font-bold"><i class="fas fa-robot text-purple-600 mr-2"></i>AI Content Generator</h2>
+                <button @click="showAIPanel=false" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <div class="p-5 space-y-4">
+                <div class="bg-purple-50 border border-purple-200 rounded-lg p-3 text-sm text-purple-800">
+                    <i class="fas fa-magic mr-1"></i> AI will generate a content plan and create draft tasks in your calendar.
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Topic / Theme *</label>
+                    <input type="text" x-model="aiConfig.topic" class="w-full px-3 py-2 border rounded-lg text-sm" placeholder="e.g., product launch, developer community growth">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Campaign *</label>
+                    <select x-model="aiConfig.campaign_id" class="w-full px-3 py-2 border rounded-lg text-sm">
+                        <option value="">Select campaign...</option>
+                        <template x-for="c in campaigns" :key="c.id">
+                            <option :value="c.id" x-text="c.campaign_name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Number of items</label>
+                    <input type="range" x-model.number="aiConfig.num_items" min="3" max="20" class="w-full">
+                    <span class="text-sm text-gray-500" x-text="aiConfig.num_items + ' content items'"></span>
+                </div>
+                <div x-show="aiResult" class="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-800">
+                    <i class="fas fa-check-circle mr-1"></i> <span x-text="aiResult"></span>
+                </div>
+                <div x-show="aiError" class="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-800">
+                    <i class="fas fa-exclamation-circle mr-1"></i> <span x-text="aiError"></span>
+                </div>
+            </div>
+            <div class="flex gap-3 justify-end p-5 border-t bg-gray-50 rounded-b-xl">
+                <button @click="showAIPanel=false" class="px-4 py-2 bg-gray-200 rounded-lg text-sm hover:bg-gray-300">Close</button>
+                <button @click="runAIGenerate()" :disabled="aiGenerating"
+                    class="px-5 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 font-medium disabled:opacity-50">
+                    <template x-if="!aiGenerating"><span><i class="fas fa-robot mr-1"></i> Generate Plan</span></template>
+                    <template x-if="aiGenerating"><span><i class="fas fa-spinner fa-spin mr-1"></i> Generating...</span></template>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast.show" x-transition
+         class="fixed bottom-6 right-6 px-5 py-3 rounded-lg shadow-lg text-white text-sm font-medium z-50"
+         :class="toast.type === 'error' ? 'bg-red-600' : 'bg-green-600'">
+        <span x-text="toast.msg"></span>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function contentCalendar() {
+    return {
+        /* --- state --- */
+        brands: [],
+        campaigns: [],
+        tasks: [],
+        filters: { brand: '', campaign: '', status: '' },
+        viewMode: 'calendar',
+        currentMonth: new Date(),
+
+        /* modals */
+        showTaskModal: false,
+        showCampaignModal: false,
+        showAIPanel: false,
+
+        /* editing */
+        editingTask: {},
+        editingCampaign: {},
+
+        /* AI */
+        aiConfig: { topic: '', campaign_id: '', num_items: 7 },
+        aiGenerating: false,
+        aiDrafting: false,
+        aiResult: '',
+        aiError: '',
+
+        /* toast */
+        toast: { show: false, msg: '', type: 'success' },
+
+        /* constants */
+        platforms: ['TWITTER', 'LINKEDIN', 'REDDIT', 'YOUTUBE', 'DEVTO', 'WEBSITE', 'EMAIL', 'HACKER_NEWS', 'INDIE_HACKERS', 'TIKTOK', 'PRODUCT_HUNT'],
+        boardColumns: [
+            { status: 'DRAFT', label: 'Draft', bg: 'bg-gray-100', dot: 'bg-gray-400', border: 'border-gray-400' },
+            { status: 'SCHEDULED', label: 'Scheduled', bg: 'bg-blue-50', dot: 'bg-blue-400', border: 'border-blue-400' },
+            { status: 'IN_PROGRESS', label: 'In Progress', bg: 'bg-yellow-50', dot: 'bg-yellow-400', border: 'border-yellow-400' },
+            { status: 'COMPLETED', label: 'Completed', bg: 'bg-green-50', dot: 'bg-green-400', border: 'border-green-400' }
+        ],
+
+        /* --- computed --- */
+        get monthTitle() {
+            return this.currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' });
+        },
+        get calendarCells() {
+            const y = this.currentMonth.getFullYear();
+            const m = this.currentMonth.getMonth();
+            const first = new Date(y, m, 1);
+            const last = new Date(y, m + 1, 0);
+            const cells = [];
+            const start = new Date(first);
+            start.setDate(start.getDate() - first.getDay());
+            const today = new Date().toISOString().split('T')[0];
+            for (let i = 0; i < 42; i++) {
+                const d = new Date(start);
+                d.setDate(d.getDate() + i);
+                const iso = d.toISOString().split('T')[0];
+                cells.push({
+                    key: iso,
+                    date: iso,
+                    day: d.getDate(),
+                    inMonth: d.getMonth() === m,
+                    isToday: iso === today
+                });
+            }
+            return cells;
+        },
+        get filteredTasks() {
+            let list = [...this.tasks];
+            if (this.filters.status) list = list.filter(t => t.status === this.filters.status);
+            return list.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+        },
+
+        /* --- methods --- */
+        async init() {
+            await this.loadBrands();
+            await this.loadCampaigns();
+            await this.loadTasks();
+        },
+
+        async loadBrands() {
+            try {
+                const r = await fetch('/api/admin/brands');
+                const d = await r.json();
+                this.brands = d.data || d.brands || [];
+            } catch (e) { this.brands = []; }
+        },
+
+        async loadCampaigns() {
+            const params = new URLSearchParams();
+            if (this.filters.brand) params.set('brand', this.filters.brand);
+            const r = await fetch('/api/marketing/campaigns?' + params);
+            const d = await r.json();
+            this.campaigns = d.success ? d.data : [];
+        },
+
+        async loadTasks() {
+            const params = new URLSearchParams();
+            if (this.filters.brand) params.set('brand', this.filters.brand);
+            if (this.filters.campaign) params.set('calendar_id', this.filters.campaign);
+            if (this.filters.status) params.set('status', this.filters.status);
+            const r = await fetch('/api/marketing/tasks?' + params);
+            const d = await r.json();
+            this.tasks = d.success ? d.data : [];
+        },
+
+        async reload() {
+            await this.loadCampaigns();
+            await this.loadTasks();
+        },
+
+        tasksOnDate(dateStr) {
+            return this.tasks.filter(t => t.scheduled_date && t.scheduled_date.split('T')[0] === dateStr);
+        },
+        tasksByStatus(status) {
+            return this.tasks.filter(t => t.status === status);
+        },
+
+        changeMonth(delta) {
+            this.currentMonth = new Date(this.currentMonth.getFullYear(), this.currentMonth.getMonth() + delta);
+        },
+
+        /* --- Task CRUD --- */
+        openNewTask(date) {
+            const brandName = this.filters.brand || (this.brands[0] && this.brands[0].name) || '';
+            const campaignId = this.filters.campaign || (this.campaigns[0] && this.campaigns[0].id) || '';
+            this.editingTask = {
+                task_name: '',
+                platform: 'TWITTER',
+                task_type: 'SOCIAL_POST',
+                scheduled_date: date || new Date().toISOString().split('T')[0],
+                priority: 'MEDIUM',
+                status: 'DRAFT',
+                title: '',
+                body: '',
+                assigned_to: '',
+                brand_name: brandName,
+                calendar_id: campaignId
+            };
+            this.showTaskModal = true;
+        },
+
+        openEditTask(task) {
+            this.editingTask = {
+                ...task,
+                scheduled_date: (task.scheduled_date || '').split('T')[0]
+            };
+            this.showTaskModal = true;
+        },
+
+        async saveTask() {
+            const t = this.editingTask;
+            if (!t.task_name || !t.scheduled_date) {
+                this.showToast('Task name and date are required', 'error');
+                return;
+            }
+            // Ensure brand_name is set
+            if (!t.brand_name) t.brand_name = this.filters.brand || (this.brands[0] && this.brands[0].name) || '';
+            if (!t.calendar_id) t.calendar_id = this.filters.campaign || (this.campaigns[0] && this.campaigns[0].id) || '';
+
+            try {
+                const isEdit = !!t.id;
+                const url = isEdit ? `/api/marketing/tasks/${t.id}` : '/api/marketing/tasks';
+                const method = isEdit ? 'PUT' : 'POST';
+                const r = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(t)
+                });
+                const d = await r.json();
+                if (d.success) {
+                    this.showToast(isEdit ? 'Task updated' : 'Task created');
+                    this.showTaskModal = false;
+                    await this.reload();
+                } else {
+                    this.showToast(d.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async deleteTask(task) {
+            if (!confirm(`Delete "${task.task_name}"?`)) return;
+            try {
+                const r = await fetch(`/api/marketing/tasks/${task.id}`, { method: 'DELETE' });
+                const d = await r.json();
+                if (d.success) {
+                    this.showToast('Task deleted');
+                    this.showTaskModal = false;
+                    await this.reload();
+                } else {
+                    this.showToast(d.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        /* --- Campaign CRUD --- */
+        openNewCampaign() {
+            const brandName = this.filters.brand || (this.brands[0] && this.brands[0].name) || '';
+            const today = new Date().toISOString().split('T')[0];
+            const end = new Date();
+            end.setDate(end.getDate() + 30);
+            this.editingCampaign = {
+                brand_name: brandName,
+                campaign_name: '',
+                description: '',
+                start_date: today,
+                end_date: end.toISOString().split('T')[0],
+                goal: '',
+                budget: 0,
+                status: 'draft'
+            };
+            this.showCampaignModal = true;
+        },
+
+        editCampaign(c) {
+            this.editingCampaign = {
+                ...c,
+                start_date: (c.start_date || '').split('T')[0],
+                end_date: (c.end_date || '').split('T')[0]
+            };
+            this.showCampaignModal = true;
+        },
+
+        async saveCampaign() {
+            const c = this.editingCampaign;
+            if (!c.campaign_name || !c.start_date || !c.end_date) {
+                this.showToast('Name and dates are required', 'error');
+                return;
+            }
+            if (!c.brand_name) c.brand_name = this.filters.brand || (this.brands[0] && this.brands[0].name) || '';
+
+            try {
+                const isEdit = !!c.id;
+                const url = isEdit ? `/api/marketing/campaigns/${c.id}` : '/api/marketing/campaigns';
+                const method = isEdit ? 'PUT' : 'POST';
+                const r = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(c)
+                });
+                const d = await r.json();
+                if (d.success) {
+                    this.showToast(isEdit ? 'Campaign updated' : 'Campaign created');
+                    this.showCampaignModal = false;
+                    await this.loadCampaigns();
+                } else {
+                    this.showToast(d.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        async deleteCampaign(c) {
+            if (!confirm(`Delete campaign "${c.campaign_name}" and all its tasks?`)) return;
+            try {
+                const r = await fetch(`/api/marketing/campaigns/${c.id}`, { method: 'DELETE' });
+                const d = await r.json();
+                if (d.success) {
+                    this.showToast('Campaign deleted');
+                    await this.reload();
+                } else {
+                    this.showToast(d.error || 'Failed', 'error');
+                }
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            }
+        },
+
+        /* --- AI --- */
+        async runAIGenerate() {
+            this.aiResult = '';
+            this.aiError = '';
+            if (!this.aiConfig.topic) { this.aiError = 'Enter a topic'; return; }
+            if (!this.aiConfig.campaign_id) { this.aiError = 'Select a campaign'; return; }
+
+            const brandName = this.filters.brand || (this.brands[0] && this.brands[0].name) || '';
+            if (!brandName) { this.aiError = 'No brand available'; return; }
+
+            this.aiGenerating = true;
+            try {
+                const r = await fetch('/api/marketing/generate-content', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        brand_name: brandName,
+                        content_type: 'content_plan',
+                        topic: this.aiConfig.topic,
+                        campaign_id: this.aiConfig.campaign_id,
+                        num_items: this.aiConfig.num_items
+                    })
+                });
+                const d = await r.json();
+                if (d.success) {
+                    this.aiResult = `Created ${d.created_count} tasks using ${d.model}`;
+                    await this.reload();
+                } else {
+                    this.aiError = d.error || 'Generation failed';
+                }
+            } catch (e) {
+                this.aiError = e.message;
+            } finally {
+                this.aiGenerating = false;
+            }
+        },
+
+        async aiDraftContent() {
+            const t = this.editingTask;
+            const brandName = t.brand_name || this.filters.brand || (this.brands[0] && this.brands[0].name) || '';
+            if (!brandName) { this.showToast('No brand selected', 'error'); return; }
+
+            this.aiDrafting = true;
+            try {
+                const r = await fetch('/api/marketing/generate-content', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        brand_name: brandName,
+                        content_type: 'social_post',
+                        platform: t.platform || 'twitter',
+                        topic: t.title || t.task_name || 'brand awareness'
+                    })
+                });
+                const d = await r.json();
+                if (d.success && d.content) {
+                    this.editingTask.body = d.content;
+                } else {
+                    this.showToast(d.error || 'AI generation failed', 'error');
+                }
+            } catch (e) {
+                this.showToast(e.message, 'error');
+            } finally {
+                this.aiDrafting = false;
+            }
+        },
+
+        /* --- Helpers --- */
+        formatDate(d) { return d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; },
+        platformColor(p) {
+            const m = { TWITTER: 'bg-blue-100 text-blue-800', LINKEDIN: 'bg-indigo-100 text-indigo-800',
+                REDDIT: 'bg-orange-100 text-orange-800', YOUTUBE: 'bg-red-100 text-red-800',
+                DEVTO: 'bg-gray-800 text-white', WEBSITE: 'bg-green-100 text-green-800',
+                EMAIL: 'bg-yellow-100 text-yellow-800', HACKER_NEWS: 'bg-orange-200 text-orange-900',
+                INDIE_HACKERS: 'bg-purple-100 text-purple-800', TIKTOK: 'bg-pink-100 text-pink-800',
+                PRODUCT_HUNT: 'bg-red-100 text-red-700' };
+            return m[p] || 'bg-gray-100 text-gray-800';
+        },
+        statusColor(s) {
+            const m = { DRAFT: 'bg-gray-200 text-gray-700', draft: 'bg-gray-200 text-gray-700',
+                SCHEDULED: 'bg-blue-200 text-blue-800', IN_PROGRESS: 'bg-yellow-200 text-yellow-800',
+                COMPLETED: 'bg-green-200 text-green-800', completed: 'bg-green-200 text-green-800',
+                active: 'bg-blue-200 text-blue-800', CANCELLED: 'bg-red-200 text-red-800' };
+            return m[s] || 'bg-gray-200 text-gray-700';
+        },
+        priorityColor(p) {
+            const m = { LOW: 'text-gray-500', MEDIUM: 'text-blue-600', HIGH: 'text-orange-600', CRITICAL: 'text-red-600' };
+            return m[p] || '';
+        },
+        showToast(msg, type = 'success') {
+            this.toast = { show: true, msg, type };
+            setTimeout(() => { this.toast.show = false; }, 3000);
+        }
+    };
+}
+</script>
+{% endblock %}

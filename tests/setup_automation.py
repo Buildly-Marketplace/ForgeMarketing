@@ -42,12 +42,13 @@ def check_requirements():
     # Check if Ollama is accessible
     try:
         import requests
-        response = requests.get("http://pop-os2.local:11434/api/tags", timeout=5)
+        ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+        response = requests.get(f"{ollama_host}/api/tags", timeout=5)
         if response.status_code == 200:
             models = response.json().get('models', [])
             print(f"✅ Ollama connection ({len(models)} models available)")
         else:
-            print("❌ Ollama not accessible at pop-os2.local:11434")
+            print(f"❌ Ollama not accessible at {ollama_host}")
             print("   Make sure Ollama is running and accessible")
             return False
     except Exception as e:
@@ -144,14 +145,14 @@ async def test_ai_integration():
         from automation.ai.ollama_integration import OllamaClient, AIContentGenerator
         
         # Test Ollama connection
-        client = OllamaClient("http://pop-os2.local:11434")
+        client = OllamaClient()
         connected = await client.test_connection()
         
         if connected:
             print("✅ Ollama connection successful")
             
             # Test content generation
-            generator = AIContentGenerator("http://pop-os2.local:11434")
+            generator = AIContentGenerator()
             brands = list(generator.brand_configs.keys())
             
             if brands:

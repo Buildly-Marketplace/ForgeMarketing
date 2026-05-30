@@ -14,16 +14,6 @@ from functools import lru_cache
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Default brands used as fallback when database is unavailable
-DEFAULT_BRANDS = [
-    {'name': 'buildly', 'display_name': 'Buildly', 'description': 'Low-code automation platform', 'website_url': 'https://buildly.io'},
-    {'name': 'foundry', 'display_name': 'First City Foundry', 'description': 'Startup accelerator platform', 'website_url': 'https://firstcityfoundry.com'},
-    {'name': 'openbuild', 'display_name': 'OpenBuild', 'description': 'Community-driven development platform', 'website_url': 'https://open.build'},
-    {'name': 'radical', 'display_name': 'Radical Therapy', 'description': 'Digital therapy platform', 'website_url': 'https://radicaltherapy.com'},
-    {'name': 'oregonsoftware', 'display_name': 'Oregon Software', 'description': 'Software development services', 'website_url': 'https://oregonsoftware.com'},
-]
-
-
 class BrandLoader:
     """Load brand data from database instead of hardcoded values"""
     
@@ -50,6 +40,10 @@ class BrandLoader:
             if db_url:
                 if db_url.startswith('postgres://'):
                     db_url = db_url.replace('postgres://', 'postgresql://', 1)
+                if db_url.startswith('mysql://'):
+                    db_url = db_url.replace('mysql://', 'mysql+mysqldb://', 1)
+                if '?' in db_url:
+                    db_url = db_url.split('?')[0]
             else:
                 db_path = os.path.join(project_root, 'data', 'marketing_dashboard.db')
                 if not os.path.exists(db_path):
@@ -74,7 +68,7 @@ class BrandLoader:
     def get_all_brands(self, active_only: bool = True, include_details: bool = False) -> list:
         """
         Get all brands from database.
-        Falls back to DEFAULT_BRANDS if database unavailable.
+        Returns an empty list if no brands are configured.
         """
         # Try direct DB query first (works without Flask)
         rows = self._query_db_direct(active_only=active_only)
@@ -99,10 +93,7 @@ class BrandLoader:
             except Exception:
                 pass
         
-        # Fallback to defaults
-        if include_details:
-            return list(DEFAULT_BRANDS)
-        return [b['name'] for b in DEFAULT_BRANDS]
+        return []
     
     def get_brand_by_name(self, brand_name: str) -> Optional[Dict[str, Any]]:
         """Get brand details by name"""
@@ -179,7 +170,7 @@ def get_all_brands(active_only: bool = True) -> List[str]:
     
     Usage:
         from config.brand_loader import get_all_brands
-        brands = get_all_brands()  # Returns ['buildly', 'foundry', ...]
+        brands = get_all_brands()  # Returns configured brand keys from the database
     """
     loader = get_brand_loader()
     return loader.get_all_brands(active_only=active_only)
@@ -191,7 +182,7 @@ def get_brand_details(brand_name: str) -> Optional[Dict[str, Any]]:
     
     Usage:
         from config.brand_loader import get_brand_details
-        brand = get_brand_details('buildly')
+        brand = get_brand_details('washoku')
     """
     loader = get_brand_loader()
     return loader.get_brand_by_name(brand_name)

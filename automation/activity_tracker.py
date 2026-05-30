@@ -16,6 +16,7 @@ import logging
 
 from sqlalchemy import (create_engine, text, MetaData, Table, Column, Index,
                         Integer, String, Float, Boolean, Text, DateTime)
+from sqlalchemy.exc import OperationalError
 
 
 class ActivityTracker:
@@ -158,8 +159,17 @@ class ActivityTracker:
     
     def _initialize_database(self):
         """Create all tables if they don't exist"""
-        self.sa_metadata.create_all(self.engine)
-        self.logger.info("✅ Activity tracking database initialized")
+        try:
+            self.sa_metadata.create_all(self.engine)
+            self.logger.info("✅ Activity tracking database initialized")
+        except OperationalError as e:
+            # SQLite can throw "table already exists" under concurrent startup.
+            if "already exists" in str(e).lower():
+                self.logger.warning(
+                    "⚠️  Activity tracking tables already exist; continuing startup"
+                )
+                return
+            raise
     
     # AI Activity Tracking
     def track_ai_generation(self, brand: str, content_type: str, template_used: str = None, 

@@ -411,63 +411,32 @@
                     const data = await response.json();
                     
                     if (data.success) {
-                        this.brands = [
-                            {
-                                key: 'foundry',
-                                name: 'Foundry',
-                                icon: 'fas fa-hammer',
-                                color: 'bg-purple-500',
-                                targets: data.data.foundry?.total_targets || 0,
-                                emailsSent: data.data.foundry?.total_outreach || 0,
-                                responseRate: Math.round(Math.random() * 25 + 5), // Mock for now
+                        const palette = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-red-500', 'bg-orange-500', 'bg-indigo-500'];
+                        const icons = ['fas fa-bullseye', 'fas fa-chart-line', 'fas fa-envelope', 'fas fa-users', 'fas fa-rocket', 'fas fa-compass'];
+
+                        const rawBrands = data.data || data.brands || {};
+                        const entries = Array.isArray(rawBrands)
+                            ? rawBrands.map((item, idx) => [item.key || item.name || `brand_${idx + 1}`, item])
+                            : Object.entries(rawBrands);
+
+                        this.brands = entries.map(([key, brandData], idx) => {
+                            const targets = brandData?.total_targets || brandData?.targets || 0;
+                            const emailsSent = brandData?.total_outreach || brandData?.total_emails_sent || brandData?.emails_sent || 0;
+                            const responses = brandData?.total_responses || brandData?.responses || 0;
+                            const responseRate = emailsSent > 0 ? Math.round((responses / emailsSent) * 100) : 0;
+
+                            return {
+                                key,
+                                name: (key || '').replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                                icon: icons[idx % icons.length],
+                                color: palette[idx % palette.length],
+                                targets,
+                                emailsSent,
+                                responseRate,
                                 lastActivity: new Date().toISOString(),
-                                status: 'active'
-                            },
-                            {
-                                key: 'openbuild',
-                                name: 'OpenBuild',
-                                icon: 'fas fa-code',
-                                color: 'bg-blue-500',
-                                targets: data.data.openbuild?.total_targets || 0,
-                                emailsSent: data.data.openbuild?.total_outreach || 0,
-                                responseRate: Math.round(Math.random() * 25 + 5),
-                                lastActivity: new Date().toISOString(),
-                                status: 'active'
-                            },
-                            {
-                                key: 'buildly',
-                                name: 'Buildly',
-                                icon: 'fas fa-building',
-                                color: 'bg-green-500',
-                                targets: 0, // Add when data available
-                                emailsSent: 0,
-                                responseRate: 0,
-                                lastActivity: new Date().toISOString(),
-                                status: 'pending'
-                            },
-                            {
-                                key: 'radical',
-                                name: 'Radical',
-                                icon: 'fas fa-rocket',
-                                color: 'bg-red-500',
-                                targets: 0,
-                                emailsSent: 0,
-                                responseRate: 0,
-                                lastActivity: new Date().toISOString(),
-                                status: 'pending'
-                            },
-                            {
-                                key: 'oregonsoftware',
-                                name: 'Oregon Software',
-                                icon: 'fas fa-tree',
-                                color: 'bg-orange-500',
-                                targets: 0,
-                                emailsSent: 0,
-                                responseRate: 0,
-                                lastActivity: new Date().toISOString(),
-                                status: 'pending'
-                            }
-                        ];
+                                status: emailsSent > 0 ? 'active' : 'pending'
+                            };
+                        });
                     }
                 } catch (error) {
                     console.error('Error loading brand data:', error);
@@ -775,7 +744,7 @@ function initializeCharts() {
     responseRateChart = new Chart(responseCtx, {
         type: 'doughnut',
         data: {
-            labels: ['Foundry', 'OpenBuild', 'Buildly', 'Radical', 'Oregon Software'],
+            labels: ['Brand 1', 'Brand 2', 'Brand 3', 'Brand 4', 'Brand 5'],
             datasets: [{
                 data: [25, 15, 30, 20, 10],
                 backgroundColor: [

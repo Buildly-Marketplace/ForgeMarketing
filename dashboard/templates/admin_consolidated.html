@@ -133,11 +133,7 @@
                                     <div class="mb-3">
                                         <label class="form-label">Brand</label>
                                         <select class="form-select" id="testBrand">
-                                            <option value="washoku">Washoku</option>
-                                            <option value="northstar">Northstar</option>
-                                            <option value="sunnyside">Sunnyside</option>
-                                            <option value="craftkit">CraftKit</option>
-                                            <option value="trailhead">Trailhead</option>
+                                            <option value="">No brands configured</option>
                                         </select>
                                     </div>
                                     <div class="mb-3">
@@ -163,7 +159,7 @@
                                     </div>
                                     <div class="alert alert-warning">
                                         <i class="fas fa-info-circle me-2"></i>
-                                        This will send 6 test emails (3 brands × 2 campaign types)
+                                        This sends test emails across configured brands and key campaign types.
                                     </div>
                                     <button class="btn btn-warning" onclick="runComprehensiveTest()">
                                         <i class="fas fa-rocket me-2"></i>Run Comprehensive Test
@@ -262,20 +258,7 @@
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Property IDs by Brand</label>
-                                <div id="property-ids-container">
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text">Washoku</span>
-                                        <input type="text" class="form-control" value="GA4-PROPERTY-ID-1" placeholder="GA4 Property ID">
-                                    </div>
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text">Northstar</span>
-                                        <input type="text" class="form-control" value="GA4-PROPERTY-ID-2" placeholder="GA4 Property ID">
-                                    </div>
-                                    <div class="input-group mb-2">
-                                        <span class="input-group-text">Sunnyside</span>
-                                        <input type="text" class="form-control" value="GA4-PROPERTY-ID-3" placeholder="GA4 Property ID">
-                                    </div>
-                                </div>
+                                <div id="property-ids-container"></div>
                             </div>
                             <button type="button" class="btn btn-success" onclick="testAnalyticsConnection()">
                                 <i class="fas fa-chart-line"></i> Test Connection
@@ -379,11 +362,66 @@
 </div>
 
 <script>
+let configuredBrands = [];
+
 document.addEventListener('DOMContentLoaded', function() {
     loadOverviewData();
+    loadConfiguredBrands();
     loadAutomationRules();
     loadCronJobs();
 });
+
+function loadConfiguredBrands() {
+    fetch('/api/admin/brands')
+        .then(response => response.json())
+        .then(data => {
+            const brands = (data.brands || []).map(b => (typeof b === 'string' ? b : b.name)).filter(Boolean);
+            configuredBrands = brands;
+            renderBrandSelectors(brands);
+            renderAnalyticsPropertyRows(brands);
+        })
+        .catch(error => {
+            console.error('Error loading configured brands:', error);
+            configuredBrands = [];
+            renderBrandSelectors([]);
+            renderAnalyticsPropertyRows([]);
+        });
+}
+
+function renderBrandSelectors(brands) {
+    const brandSelect = document.getElementById('testBrand');
+    if (!brandSelect) return;
+    brandSelect.innerHTML = '';
+
+    if (!brands.length) {
+        brandSelect.innerHTML = '<option value="">No brands configured</option>';
+        return;
+    }
+
+    brands.forEach(brand => {
+        const option = document.createElement('option');
+        option.value = brand;
+        option.textContent = brand.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        brandSelect.appendChild(option);
+    });
+}
+
+function renderAnalyticsPropertyRows(brands) {
+    const container = document.getElementById('property-ids-container');
+    if (!container) return;
+
+    if (!brands.length) {
+        container.innerHTML = '<div class="text-muted">No brands configured yet.</div>';
+        return;
+    }
+
+    container.innerHTML = brands.map(brand => `
+        <div class="input-group mb-2">
+            <span class="input-group-text">${brand.replace(/[_-]/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
+            <input type="text" class="form-control" placeholder="GA4 Property ID for ${brand}">
+        </div>
+    `).join('');
+}
 
 function loadOverviewData() {
     Promise.all([
@@ -395,8 +433,8 @@ function loadOverviewData() {
         if (outreachData.success) {
             document.getElementById('db-records').textContent = 318; // Known from unified DB
             document.getElementById('total-emails').textContent = outreachData.overview?.total_emails_sent || 179;
-            document.getElementById('active-brands').textContent = outreachData.total_brands || 5;
-            document.getElementById('active-crons').textContent = (outreachData.total_brands || 5) * 2; // Estimate 2 crons per brand
+            document.getElementById('active-brands').textContent = outreachData.total_brands || 0;
+            document.getElementById('active-crons').textContent = (outreachData.total_brands || 0) * 2; // Estimate 2 crons per brand
             
             // Update system status
             const statusContainer = document.getElementById('system-status-container');
@@ -441,8 +479,8 @@ function loadOverviewData() {
         // Fallback data
         document.getElementById('db-records').textContent = '318';
         document.getElementById('total-emails').textContent = '179';
-        document.getElementById('active-brands').textContent = '5';
-        document.getElementById('active-crons').textContent = '10';
+        document.getElementById('active-brands').textContent = '0';
+        document.getElementById('active-crons').textContent = '0';
     });
 }
 
@@ -628,6 +666,11 @@ async function sendTestEmail() {
         showNotification('Please enter a test email address', 'error');
         return;
     }
+
+    if (!brand) {
+        showNotification('Please configure at least one brand first', 'error');
+        return;
+    }
     
     const resultsDiv = document.getElementById('email-test-results');
     resultsDiv.innerHTML = '<div class="spinner-border spinner-border-sm me-2"></div>Sending test email...';
@@ -679,6 +722,11 @@ async function runComprehensiveTest() {
     
     if (!testEmail) {
         showNotification('Please enter a test email address', 'error');
+        return;
+    }
+
+    if (!configuredBrands.length) {
+        showNotification('No configured brands found for comprehensive test', 'error');
         return;
     }
     

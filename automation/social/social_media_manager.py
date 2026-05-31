@@ -93,10 +93,10 @@ class SocialMediaManager:
                     }
                 },
                 'brand_platforms': {
-                    'buildly': {'active_platforms': ['twitter', 'linkedin']},
-                    'foundry': {'active_platforms': ['twitter', 'linkedin']},
-                    'open_build': {'active_platforms': ['twitter', 'linkedin']},
-                    'radical_therapy': {'active_platforms': ['twitter', 'instagram']}
+                    'washoku': {'active_platforms': ['twitter', 'linkedin']},
+                    'northstar': {'active_platforms': ['twitter', 'linkedin']},
+                    'sunnyside': {'active_platforms': ['twitter', 'linkedin']},
+                    'craftkit': {'active_platforms': ['twitter', 'instagram']}
                 }
             }
             
@@ -110,16 +110,16 @@ class SocialMediaManager:
         
         # Brand-specific account mapping
         brand_accounts = {
-            'buildly': ['BUILDLY', 'CLOUDNATIVE'],  # Both buildly accounts
-            'foundry': ['BUILDLY', 'CLOUDNATIVE'],  # Use buildly accounts for foundry
-            'open_build': ['OPENBUILD'],  # Dedicated open build account
-            'open-build': ['OPENBUILD'],  # Alternative naming
+            'washoku': ['BRAND1', 'BRAND2'],
+            'northstar': ['BRAND1'],
+            'sunnyside': ['BRAND2'],
+            'craftkit': ['BRAND1'],
             'personal': ['PERSONAL'],  # Personal account
-            'all': ['BUILDLY', 'CLOUDNATIVE', 'OPENBUILD', 'PERSONAL']  # All accounts
+            'all': ['BRAND1', 'BRAND2', 'PERSONAL']
         }
         
         # Get account prefixes for this brand
-        account_prefixes = brand_accounts.get(brand.lower(), ['BUILDLY'])  # Default to buildly
+        account_prefixes = brand_accounts.get(brand.lower(), ['BRAND1'])
         
         for prefix in account_prefixes:
             instance = self.get_env_var(f'MASTODON_{prefix}_INSTANCE')
@@ -247,10 +247,12 @@ class SocialMediaManager:
     def get_mastodon_accounts_for_brand(self, brand):
         """Get list of Mastodon account keys for a specific brand"""
         brand_mapping = {
-            'buildly': ['BUILDLY', 'CLOUDNATIVE'],
-            'open_build': ['OPENBUILD'], 
+            'washoku': ['BRAND1', 'BRAND2'],
+            'northstar': ['BRAND1'],
+            'sunnyside': ['BRAND2'],
+            'craftkit': ['BRAND1'],
             'personal': ['PERSONAL'],
-            'all': ['BUILDLY', 'CLOUDNATIVE', 'OPENBUILD', 'PERSONAL']
+            'all': ['BRAND1', 'BRAND2', 'PERSONAL']
         }
         
         account_keys = brand_mapping.get(brand.lower(), [])

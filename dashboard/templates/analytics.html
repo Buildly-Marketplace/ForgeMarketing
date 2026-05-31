@@ -330,21 +330,24 @@ function analyticsPage() {
                 
                 // Enhanced fallback with real unified database stats
                 if (!this.brandPerformance.length) {
-                    this.brandPerformance = [
-                        { name: 'foundry', posts: 170, engagement: '11.8%', score: 87 },
-                        { name: 'openbuild', posts: 9, engagement: '8.7%', score: 75 },
-                        { name: 'buildly', posts: 0, engagement: '0%', score: 70 },
-                        { name: 'radical', posts: 0, engagement: '0%', score: 70 },
-                        { name: 'oregonsoftware', posts: 0, engagement: '0%', score: 70 }
-                    ];
+                    // Load from API if fallback needed
+                    try {
+                        const bRes = await fetch('/api/admin/brands');
+                        if (bRes.ok) {
+                            const bData = await bRes.json();
+                            this.brandPerformance = (bData.brands || []).map(b => ({
+                                name: b.name || b,
+                                posts: 0,
+                                engagement: '0%',
+                                score: 70
+                            }));
+                        }
+                    } catch (e) { /* silent */ }
                 }
                 
                 if (!this.recentActivity.length) {
                     this.recentActivity = [
-                        { id: 1, type: 'email', title: 'Foundry outreach campaign', brand: 'Foundry', time: '2h ago', metric: 'Delivered' },
-                        { id: 2, type: 'email', title: 'OpenBuild target discovery', brand: 'OpenBuild', time: '4h ago', metric: '5 new targets' },
-                        { id: 3, type: 'system', title: 'Daily analytics report', brand: 'System', time: '6h ago', metric: 'Generated' },
-                        { id: 4, type: 'email', title: 'Follow-up sequence', brand: 'Foundry', time: '1d ago', metric: 'In Progress' }
+                        { id: 1, type: 'system', title: 'Daily analytics report', brand: 'System', time: '6h ago', metric: 'Generated' }
                     ];
                 }
                 

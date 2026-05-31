@@ -404,7 +404,8 @@ function influencerManager() {
         selectedInfluencer: null,
         selectedBrand: 'all',
         platformFilter: 'all',
-        brands: ['foundry', 'buildly', 'open_build', 'radical_therapy'],
+        brands: [],
+        availableBrands: [],
         influencers: [],
         stats: {
             total_influencers: 0,
@@ -413,9 +414,22 @@ function influencerManager() {
             high_alignment_count: 0
         },
         
-        init() {
+        async init() {
+            await this.loadBrands();
             this.loadStats();
             this.loadInfluencers();
+        },
+
+        async loadBrands() {
+            try {
+                const res = await fetch('/api/admin/brands');
+                if (res.ok) {
+                    const data = await res.json();
+                    this.brands = (data.brands || []).map(b => b.name || b);
+                }
+            } catch (e) {
+                console.error('Could not load brands', e);
+            }
         },
         
         get filteredInfluencers() {

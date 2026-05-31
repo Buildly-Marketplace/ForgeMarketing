@@ -236,7 +236,15 @@
         
         function updateBrandActivity(data) {
             const brandContainer = document.getElementById('brandActivity');
-            const brands = ['foundry', 'buildly', 'open_build', 'radical_therapy'];
+            // Load brands dynamically from API
+            let brands = ['system'];
+            try {
+                const bRes = await fetch('/api/admin/brands');
+                if (bRes.ok) {
+                    const bData = await bRes.json();
+                    brands = (bData.brands || []).map(b => b.name || b);
+                }
+            } catch (e) { /* use default */ }
             
             let html = '';
             

@@ -4,11 +4,120 @@ Stores brand configurations, API credentials, and system settings
 """
 
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 import json
+import bcrypt
 
 db = SQLAlchemy()
+
+
+# ============================================================================
+# USER & AUTH MODELS
+# ============================================================================
+
+class User(UserMixin, db.Model):
+    """A user who can log in and manage one or more brands"""
+    __tablename__ = 'users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    display_name = db.Column(db.String(255), default='')
+    is_admin = db.Column(db.Boolean, default=False)
+    is_active_user = db.Column(db.Boolean, default=True)
+    must_change_password = db.Column(db.Boolean, default=False)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login_at = db.Column(db.DateTime, nullable=True)
+
+    # Relationships
+    brand_memberships = db.relationship('UserBrand', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+
+    def set_password(self, password: str) -> None:
+        self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+    def check_password(self, password: str) -> bool:
+        return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
+
+    @property
+    def is_active(self):
+        return self.is_active_user
+
+    def get_brands(self) -> list:
+        """Return Brand objects this user may access"""
+        return [ub.brand for ub in self.brand_memberships.all() if ub.brand.is_active]
+
+    def has_brand_access(self, brand_id: int) -> bool:
+        if self.is_admin:
+            return True
+        return self.brand_memberships.filter_by(brand_id=brand_id).first() is not None
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'email': self.email,
+            'display_name': self.display_name,
+            'is_admin': self.is_admin,
+            'brands': [ub.brand.name for ub in self.brand_memberships.all()],
+            'last_login_at': self.last_login_at.isoformat() if self.last_login_at else None,
+        }
+
+
+class UserBrand(db.Model):
+    """Links a user to one or more brands they can manage"""
+    __tablename__ = 'user_brands'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    brand_id = db.Column(db.Integer, db.ForeignKey('brands.id'), nullable=False, index=True)
+    role = db.Column(db.String(50), default='editor')  # owner, editor, viewer
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    brand = db.relationship('Brand', backref='user_memberships')
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'brand_id', name='unique_user_brand'),
+    )
+
+
+# ============================================================================
+# BRAND THEME MODEL
+# ============================================================================
+
+class BrandTheme(db.Model):
+    """Data-driven visual theme for each brand"""
+    __tablename__ = 'brand_themes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    brand_id = db.Column(db.Integer, db.ForeignKey('brands.id'), nullable=False, unique=True, index=True)
+
+    primary_color = db.Column(db.String(7), default='#4A90D9')    # hex
+    secondary_color = db.Column(db.String(7), default='#1E3A5F')
+    accent_color = db.Column(db.String(7), default='#10B981')
+    nav_gradient_from = db.Column(db.String(7), default='#667eea')
+    nav_gradient_to = db.Column(db.String(7), default='#764ba2')
+    logo_url = db.Column(db.String(500), default='')
+    favicon_url = db.Column(db.String(500), default='')
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    brand = db.relationship('Brand', backref=db.backref('theme', uselist=False, cascade='all, delete-orphan'))
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'primary_color': self.primary_color,
+            'secondary_color': self.secondary_color,
+            'accent_color': self.accent_color,
+            'nav_gradient_from': self.nav_gradient_from,
+            'nav_gradient_to': self.nav_gradient_to,
+            'logo_url': self.logo_url,
+            'favicon_url': self.favicon_url,
+        }
 
 
 class Brand(db.Model):
@@ -16,8 +125,8 @@ class Brand(db.Model):
     __tablename__ = 'brands'
     
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), unique=True, nullable=False, index=True)  # buildly, foundry, openbuild, etc.
-    display_name = db.Column(db.String(255), nullable=False)  # Buildly, Foundry, OpenBuild, etc.
+    name = db.Column(db.String(255), unique=True, nullable=False, index=True)  # brand slug (e.g., washoku, northstar)
+    display_name = db.Column(db.String(255), nullable=False)  # Human-facing brand name
     description = db.Column(db.Text, default='')
     logo_url = db.Column(db.String(500), default='')
     website_url = db.Column(db.String(500), default='')
@@ -371,4 +480,186 @@ class APICredentialLog(db.Model):
             'success': self.success,
             'error_message': self.error_message,
             'created_at': self.created_at.isoformat(),
+        }
+
+
+# ============================================================================
+# SCHEDULED TASKS MODEL
+# ============================================================================
+
+class ScheduledTask(db.Model):
+    """User-managed scheduled automation tasks stored in the database"""
+    __tablename__ = 'scheduled_tasks'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    description = db.Column(db.Text, default='')
+    task_type = db.Column(db.String(100), nullable=False, index=True)  # outreach, discovery, analytics, social, report
+    brand_id = db.Column(db.Integer, db.ForeignKey('brands.id'), nullable=True, index=True)
+
+    # Cron schedule (e.g. "0 9 * * 1" = Monday 9am)
+    cron_expression = db.Column(db.String(100), nullable=False)
+    schedule_label = db.Column(db.String(100), default='')  # Human label e.g. "Every Monday at 9am"
+
+    # Task parameters (JSON)
+    parameters = db.Column(db.Text, default='{}')
+
+    # Status
+    is_enabled = db.Column(db.Boolean, default=True, index=True)
+    last_run_at = db.Column(db.DateTime, nullable=True)
+    next_run_at = db.Column(db.DateTime, nullable=True)
+    run_count = db.Column(db.Integer, default=0)
+    fail_count = db.Column(db.Integer, default=0)
+    last_result = db.Column(db.Text, default='')
+
+    created_by = db.Column(db.String(255), default='system')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    brand = db.relationship('Brand', backref=db.backref('scheduled_tasks', lazy='dynamic'))
+
+    def get_parameters(self) -> Dict[str, Any]:
+        try:
+            return json.loads(self.parameters) if self.parameters else {}
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    def set_parameters(self, params: Dict[str, Any]) -> None:
+        self.parameters = json.dumps(params)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'task_type': self.task_type,
+            'brand_id': self.brand_id,
+            'brand_name': self.brand.name if self.brand else 'all',
+            'brand_display_name': self.brand.display_name if self.brand else 'All Brands',
+            'cron_expression': self.cron_expression,
+            'schedule_label': self.schedule_label,
+            'parameters': self.get_parameters(),
+            'is_enabled': self.is_enabled,
+            'last_run_at': self.last_run_at.isoformat() if self.last_run_at else None,
+            'next_run_at': self.next_run_at.isoformat() if self.next_run_at else None,
+            'run_count': self.run_count,
+            'fail_count': self.fail_count,
+            'last_result': self.last_result,
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat(),
+        }
+
+
+# ============================================================================
+# PRESS RELEASE MODEL
+# ============================================================================
+
+class PressRelease(db.Model):
+    """Press releases created and managed in the system"""
+    __tablename__ = 'press_releases'
+
+    id = db.Column(db.Integer, primary_key=True)
+    brand_id = db.Column(db.Integer, db.ForeignKey('brands.id'), nullable=False, index=True)
+
+    title = db.Column(db.String(500), nullable=False)
+    headline = db.Column(db.String(500), default='')
+    subheadline = db.Column(db.String(500), default='')
+    body = db.Column(db.Text, default='')
+    boilerplate = db.Column(db.Text, default='')  # Standard "About" section
+    contact_info = db.Column(db.Text, default='')  # JSON
+
+    # News event context
+    news_event = db.Column(db.Text, default='')  # User's description of the news
+    target_scope = db.Column(db.String(50), default='all')  # local, national, international, all
+
+    # Status
+    status = db.Column(db.String(50), default='draft', index=True)  # draft, review, approved, distributed
+    distributed_at = db.Column(db.DateTime, nullable=True)
+    distribution_targets = db.Column(db.Text, default='[]')  # JSON list of press contact IDs
+
+    created_by = db.Column(db.String(255), default='system')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    brand = db.relationship('Brand', backref=db.backref('press_releases', lazy='dynamic'))
+
+    def get_contact_info(self) -> Dict[str, Any]:
+        try:
+            return json.loads(self.contact_info) if self.contact_info else {}
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    def get_distribution_targets(self) -> List:
+        try:
+            return json.loads(self.distribution_targets) if self.distribution_targets else []
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'brand_id': self.brand_id,
+            'brand_name': self.brand.name if self.brand else '',
+            'brand_display_name': self.brand.display_name if self.brand else '',
+            'title': self.title,
+            'headline': self.headline,
+            'subheadline': self.subheadline,
+            'body': self.body,
+            'boilerplate': self.boilerplate,
+            'contact_info': self.get_contact_info(),
+            'news_event': self.news_event,
+            'target_scope': self.target_scope,
+            'status': self.status,
+            'distributed_at': self.distributed_at.isoformat() if self.distributed_at else None,
+            'distribution_targets': self.get_distribution_targets(),
+            'created_by': self.created_by,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat(),
+        }
+
+
+# ============================================================================
+# PRESS CONTACT MODEL
+# ============================================================================
+
+class PressContact(db.Model):
+    """Press/media contacts for distribution"""
+    __tablename__ = 'press_contacts'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    outlet = db.Column(db.String(255), default='')  # Publication/outlet name
+    email = db.Column(db.String(255), nullable=False, index=True)
+    phone = db.Column(db.String(50), default='')
+    title = db.Column(db.String(255), default='')  # Job title at outlet
+    beat = db.Column(db.String(255), default='')  # Coverage area (tech, business, etc.)
+    scope = db.Column(db.String(50), default='national', index=True)  # local, national, international
+    region = db.Column(db.String(255), default='')  # Geographic region for local contacts
+
+    website = db.Column(db.String(500), default='')
+    twitter_handle = db.Column(db.String(100), default='')
+    notes = db.Column(db.Text, default='')
+
+    is_active = db.Column(db.Boolean, default=True, index=True)
+    last_contacted_at = db.Column(db.DateTime, nullable=True)
+
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'name': self.name,
+            'outlet': self.outlet,
+            'email': self.email,
+            'phone': self.phone,
+            'title': self.title,
+            'beat': self.beat,
+            'scope': self.scope,
+            'region': self.region,
+            'website': self.website,
+            'twitter_handle': self.twitter_handle,
+            'notes': self.notes,
+            'is_active': self.is_active,
+            'last_contacted_at': self.last_contacted_at.isoformat() if self.last_contacted_at else None,
         }

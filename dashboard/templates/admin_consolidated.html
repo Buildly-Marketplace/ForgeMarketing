@@ -128,16 +128,16 @@
                                     <p class="text-muted">Send a single test email to verify configuration</p>
                                     <div class="mb-3">
                                         <label class="form-label">Test Email Address</label>
-                                        <input type="email" class="form-control" id="testEmail" value="greg@buildly.io" placeholder="Enter email address">
+                                        <input type="email" class="form-control" id="testEmail" value="admin@example.com" placeholder="Enter email address">
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Brand</label>
                                         <select class="form-select" id="testBrand">
-                                            <option value="foundry">First City Foundry</option>
-                                            <option value="buildly">Buildly</option>
-                                            <option value="openbuild">Open Build</option>
-                                            <option value="radical">Radical Therapy</option>
-                                            <option value="oregonsoftware">Oregon Software</option>
+                                            <option value="washoku">Washoku</option>
+                                            <option value="northstar">Northstar</option>
+                                            <option value="sunnyside">Sunnyside</option>
+                                            <option value="craftkit">CraftKit</option>
+                                            <option value="trailhead">Trailhead</option>
                                         </select>
                                     </div>
                                     <div class="mb-3">
@@ -159,7 +159,7 @@
                                     <p class="text-muted">Test all brands and campaign types (sends multiple emails)</p>
                                     <div class="mb-3">
                                         <label class="form-label">Test Email Address</label>
-                                        <input type="email" class="form-control" id="comprehensiveTestEmail" value="greg@buildly.io" placeholder="Enter email address">
+                                        <input type="email" class="form-control" id="comprehensiveTestEmail" value="admin@example.com" placeholder="Enter email address">
                                     </div>
                                     <div class="alert alert-warning">
                                         <i class="fas fa-info-circle me-2"></i>
@@ -258,21 +258,21 @@
                             <div class="mb-3">
                                 <label for="ga-api-key" class="form-label">API Key</label>
                                 <input type="password" class="form-control" id="ga-api-key" value="<your-google-analytics-api-key>" readonly>
-                                <small class="form-text text-muted">Using foundry's proven configuration</small>
+                                <small class="form-text text-muted">Using the current shared configuration</small>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Property IDs by Brand</label>
                                 <div id="property-ids-container">
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text">Foundry</span>
+                                        <span class="input-group-text">Washoku</span>
                                         <input type="text" class="form-control" value="GA4-PROPERTY-ID-1" placeholder="GA4 Property ID">
                                     </div>
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text">OpenBuild</span>
+                                        <span class="input-group-text">Northstar</span>
                                         <input type="text" class="form-control" value="GA4-PROPERTY-ID-2" placeholder="GA4 Property ID">
                                     </div>
                                     <div class="input-group mb-2">
-                                        <span class="input-group-text">Buildly</span>
+                                        <span class="input-group-text">Sunnyside</span>
                                         <input type="text" class="form-control" value="GA4-PROPERTY-ID-3" placeholder="GA4 Property ID">
                                     </div>
                                 </div>
@@ -452,25 +452,25 @@ function loadAutomationRules() {
         const rulesTable = document.getElementById('automation-rules-table');
         rulesTable.innerHTML = `
             <tr>
-                <td>Daily Outreach - Foundry</td>
+                <td>Daily Outreach</td>
                 <td>Daily @ 09:00</td>
                 <td>Send outreach emails</td>
                 <td><span class="badge bg-success">Active</span></td>
                 <td>2h ago</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editRule('foundry-daily')">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editRule('daily-outreach')">
                         <i class="fas fa-edit"></i>
                     </button>
                 </td>
             </tr>
             <tr>
-                <td>Target Discovery - OpenBuild</td>
+                <td>Target Discovery</td>
                 <td>Weekly @ 08:00</td>
                 <td>Find new targets</td>
                 <td><span class="badge bg-success">Active</span></td>
                 <td>1d ago</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="editRule('openbuild-discovery')">
+                    <button class="btn btn-sm btn-outline-primary" onclick="editRule('target-discovery')">
                         <i class="fas fa-edit"></i>
                     </button>
                 </td>
@@ -499,11 +499,11 @@ function loadCronJobs() {
                 <div class="col-md-6 mb-3">
                     <div class="card border-success">
                         <div class="card-header bg-success text-white">
-                            <h6 class="mb-0">Daily Outreach - Foundry</h6>
+                            <h6 class="mb-0">Daily Outreach</h6>
                         </div>
                         <div class="card-body">
                             <p class="mb-1"><strong>Schedule:</strong> 0 9 * * * (Daily at 9 AM)</p>
-                            <p class="mb-1"><strong>Command:</strong> python automation/run_foundry_outreach.py</p>
+                            <p class="mb-1"><strong>Command:</strong> python automation/run_outreach.py</p>
                             <p class="mb-1"><strong>Last Run:</strong> Today 09:00 AM</p>
                             <p class="mb-0"><strong>Status:</strong> <span class="badge bg-success">Success</span></p>
                         </div>
@@ -512,11 +512,11 @@ function loadCronJobs() {
                 <div class="col-md-6 mb-3">
                     <div class="card border-info">
                         <div class="card-header bg-info text-white">
-                            <h6 class="mb-0">Target Discovery - OpenBuild</h6>
+                            <h6 class="mb-0">Target Discovery</h6>
                         </div>
                         <div class="card-body">
                             <p class="mb-1"><strong>Schedule:</strong> 0 8 * * 1 (Monday at 8 AM)</p>
-                            <p class="mb-1"><strong>Command:</strong> python automation/discover_openbuild_targets.py</p>
+                            <p class="mb-1"><strong>Command:</strong> python automation/discover_targets.py</p>
                             <p class="mb-1"><strong>Last Run:</strong> Monday 08:00 AM</p>
                             <p class="mb-0"><strong>Status:</strong> <span class="badge bg-success">Success</span></p>
                         </div>

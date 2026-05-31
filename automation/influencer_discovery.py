@@ -307,6 +307,134 @@ def list_brand_strategies() -> Dict[str, str]:
     """List all configured brand strategies"""
     return {key: config['name'] for key, config in BRAND_INFLUENCER_STRATEGIES.items()}
 
+
+_BRAND_KEYWORD_STOPWORDS = {
+    'and', 'for', 'the', 'with', 'from', 'that', 'this', 'into', 'your',
+    'our', 'their', 'about', 'brand', 'company', 'business', 'services',
+    'service', 'platform', 'startup', 'solution', 'solutions'
+}
+
+
+def _normalize_brand_key(value: str) -> str:
+    """Normalize brand identifiers for resilient matching."""
+    if not value:
+        return ''
+    normalized = re.sub(r'[^a-z0-9]+', '_', value.lower().strip())
+    return normalized.strip('_')
+
+
+def _load_dashboard_brand(brand_key: str) -> Optional[Dict[str, str]]:
+    """Load a dashboard brand directly from the SQLite brand catalog."""
+    db_path = project_root / 'data' / 'marketing_dashboard.db'
+    if not db_path.exists():
+        return None
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            """
+            SELECT name, display_name, description, website_url
+            FROM brands
+            WHERE is_active = 1
+            """
+        ).fetchall()
+
+        requested_raw = (brand_key or '').strip().lower()
+        requested_normalized = _normalize_brand_key(brand_key)
+
+        for row in rows:
+            row_dict = dict(row)
+            row_name = (row_dict.get('name') or '').strip()
+            row_display = (row_dict.get('display_name') or '').strip()
+
+            candidates = {
+                row_name.lower(),
+                row_display.lower(),
+                _normalize_brand_key(row_name),
+                _normalize_brand_key(row_display),
+            }
+
+            if requested_raw in candidates or requested_normalized in candidates:
+                return row_dict
+
+        return None
+    finally:
+        conn.close()
+
+
+def _build_dashboard_brand_keywords(brand_row: Dict[str, str]) -> List[str]:
+    """Create a small keyword set for brands added through the dashboard."""
+    parts = [
+        brand_row.get('display_name', ''),
+        brand_row.get('name', '').replace('_', ' '),
+        brand_row.get('description', ''),
+    ]
+
+    website_url = brand_row.get('website_url', '')
+    if website_url:
+        hostname = urlparse(website_url).netloc.lower().replace('www.', '')
+        parts.extend(re.split(r'[^a-z0-9]+', hostname))
+
+    keywords: List[str] = []
+    seen: Set[str] = set()
+    for token in re.findall(r'[a-zA-Z][a-zA-Z0-9\-]{2,}', ' '.join(parts).lower()):
+        if token in _BRAND_KEYWORD_STOPWORDS or token in seen:
+            continue
+        seen.add(token)
+        keywords.append(token)
+
+    display_name = brand_row.get('display_name', '').strip()
+    if display_name and display_name.lower() not in seen:
+        keywords.insert(0, display_name.lower())
+
+    brand_name = brand_row.get('name', '').replace('_', ' ').strip()
+    if brand_name and brand_name.lower() not in seen:
+        keywords.insert(1, brand_name.lower())
+
+    return keywords[:12] or [brand_row.get('name', 'brand')]
+
+
+def ensure_brand_strategy(brand_key: str) -> Optional[Dict[str, Any]]:
+    """Return an existing strategy or synthesize one from dashboard brand data."""
+    brand_key_normalized = _normalize_brand_key(brand_key)
+    strategy = BRAND_INFLUENCER_STRATEGIES.get(brand_key)
+    if not strategy and brand_key_normalized:
+        strategy = BRAND_INFLUENCER_STRATEGIES.get(brand_key_normalized)
+    if strategy:
+        return strategy
+
+    brand_row = _load_dashboard_brand(brand_key)
+    if not brand_row:
+        return None
+
+    keywords = _build_dashboard_brand_keywords(brand_row)
+    hashtags = [
+        f"#{re.sub(r'[^a-zA-Z0-9]', '', keyword.title())}"
+        for keyword in keywords[:8]
+        if keyword
+    ]
+    brand_config = {
+        'name': brand_row.get('display_name') or brand_key.replace('_', ' ').title(),
+        'focus': brand_row.get('description') or f"Growth and discovery for {brand_key}",
+        'description': brand_row.get('description') or '',
+        'target_niches': keywords[:6],
+        'keywords': keywords,
+        'hashtags': hashtags,
+        'bluesky_keywords': keywords[:6],
+        'mastodon_hashtags': hashtags[:5],
+        'podcast_keywords': [f"{keyword} podcast" for keyword in keywords[:6]],
+        'min_followers': 50,
+        'target_engagement': 2.0,
+    }
+    canonical_brand_key = _normalize_brand_key(brand_row.get('name') or brand_key)
+    add_brand_strategy(canonical_brand_key, brand_config)
+    if brand_key and brand_key != canonical_brand_key:
+        add_brand_strategy(brand_key, brand_config)
+    if brand_key_normalized and brand_key_normalized != canonical_brand_key:
+        add_brand_strategy(brand_key_normalized, brand_config)
+    return brand_config
+
 class InfluencerDatabase:
     """Database manager for influencer profiles"""
     
@@ -1153,16 +1281,15 @@ class InstagramSearcher(PlatformSearcher):
             return None
     
     async def _search_devto_creators(self, keywords: List[str], max_results: int) -> List[Dict]:
-        """Search Dev.to for tech content creators and infer their Instagram presence"""
+        """Search Dev.to for tech content creators — returns only profiles with verified Instagram links"""
         profiles = []
         
         try:
-            # Search Dev.to API for articles by keyword
             for keyword in keywords[:2]:
                 url = "https://dev.to/api/articles"
                 params = {
                     'tag': keyword,
-                    'top': 7,  # Get top articles from last week
+                    'top': 7,
                     'per_page': 10
                 }
                 
@@ -1170,7 +1297,6 @@ class InstagramSearcher(PlatformSearcher):
                     if response.status == 200:
                         articles = await response.json()
                         
-                        # Get unique authors
                         authors_seen = set()
                         
                         for article in articles:
@@ -1180,203 +1306,159 @@ class InstagramSearcher(PlatformSearcher):
                             user = article.get('user', {})
                             username = user.get('username')
                             
-                            if username and username not in authors_seen and user.get('public_reactions_count', 0) > 10:
+                            if username and username not in authors_seen:
                                 authors_seen.add(username)
                                 
-                                # Create Instagram profile based on Dev.to presence
-                                instagram_profile = {
-                                    'username': username,
-                                    'display_name': user.get('name', username),
-                                    'followers': min(user.get('public_reactions_count', 0) * 10, 25000),  # Estimate
-                                    'bio': f"Tech content creator • Dev.to author • {keyword} enthusiast",
-                                    'verified': user.get('public_reactions_count', 0) > 100,
-                                    'url': f"https://instagram.com/{username}",
-                                    'posts': max(20, user.get('public_reactions_count', 0) // 5)
-                                }
-                                profiles.append(instagram_profile)
+                                # Try to find their real Instagram profile via their website
+                                website = user.get('website_url', '')
+                                if website:
+                                    instagram_handle = await self._find_instagram_from_website(website)
+                                    if instagram_handle:
+                                        profile_data = await self._get_instagram_public_data(instagram_handle)
+                                        if profile_data:
+                                            profiles.append(profile_data)
                 
-                await asyncio.sleep(1)  # Rate limiting
+                await asyncio.sleep(1)
                 
         except Exception as e:
             logger.warning(f"Dev.to search failed: {e}")
         
-        logger.info(f"👩‍💻 Found {len(profiles)} potential Instagram profiles from Dev.to creators")
+        logger.info(f"👩‍💻 Found {len(profiles)} verified Instagram profiles from Dev.to creators")
         return profiles
+    
+    async def _find_instagram_from_website(self, website_url: str) -> Optional[str]:
+        """Check a website for Instagram links and return the handle if found"""
+        try:
+            async with self.session.get(website_url) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    import re
+                    match = re.search(r'instagram\.com/([a-zA-Z0-9_.]+)', html)
+                    if match:
+                        return match.group(1)
+        except Exception:
+            pass
+        return None
 
 class LinkedInSearcher(PlatformSearcher):
-    """LinkedIn influencer discovery"""
+    """LinkedIn influencer discovery via Google search"""
     
     def __init__(self):
         super().__init__("linkedin")
     
     async def search_influencers(self, brand: str, keywords: List[str], max_results: int = 50) -> List[SocialMediaProfile]:
-        """Search LinkedIn for thought leaders and influencers"""
+        """Search LinkedIn for real thought leaders via Google"""
         profiles = []
         strategy = BRAND_INFLUENCER_STRATEGIES.get(brand, {})
         
         logger.info(f"🔍 Searching LinkedIn for {brand} thought leaders...")
         
-        # Simulate LinkedIn search results - expanded list for more discovery
-        linkedin_profiles = [
-            # Startup & Business Leaders
-            {
-                'name': 'Alex Entrepreneur',
-                'username': 'alexentrepreneur', 
-                'connections': 15000,
-                'posts': 250,
-                'headline': 'Startup Founder | Venture Capital | Business Growth Expert',
-                'location': 'San Francisco, CA'
-            },
-            {
-                'name': 'Maria Rodriguez',
-                'username': 'mariarodriguez',
-                'connections': 12000,
-                'posts': 380,
-                'headline': 'Tech Startup CEO | Women in Tech Advocate | Innovation Leader',
-                'location': 'Austin, TX'
-            },
-            {
-                'name': 'David Chen',
-                'username': 'davidchen',
-                'connections': 18000,
-                'posts': 450,
-                'headline': 'Serial Entrepreneur | SaaS Expert | Business Automation Consultant',
-                'location': 'Seattle, WA'
-            },
-            # Software Development & Tech
-            {
-                'name': 'Sarah Developer',
-                'username': 'sarahdev',
-                'connections': 8500,
-                'posts': 180,
-                'headline': 'Senior Software Engineer | JavaScript Expert | Open Source Contributor',
-                'location': 'Austin, TX'
-            },
-            {
-                'name': 'Michael Thompson',
-                'username': 'mikethompson',
-                'connections': 9200,
-                'posts': 320,
-                'headline': 'Engineering Manager | Remote Team Leadership | Software Architecture',
-                'location': 'Portland, OR'
-            },
-            {
-                'name': 'Jessica Park',
-                'username': 'jessicapark',
-                'connections': 7800,
-                'posts': 210,
-                'headline': 'Full Stack Developer | React Specialist | Developer Experience Advocate',
-                'location': 'Denver, CO'
-            },
-            # No-Code & Automation
-            {
-                'name': 'Ben NoCode',
-                'username': 'bennocode',
-                'connections': 11000,
-                'posts': 290,
-                'headline': 'No-Code Expert | Zapier Partner | Business Process Automation',
-                'location': 'Remote'
-            },
-            {
-                'name': 'Lisa Automation',
-                'username': 'lisaautomation',
-                'connections': 6500,
-                'posts': 180,
-                'headline': 'Workflow Automation Specialist | Productivity Coach | Digital Transformation',
-                'location': 'Chicago, IL'
-            },
-            # Team Management & Remote Work
-            {
-                'name': 'Rachel TeamLead',
-                'username': 'rachelteamlead',
-                'connections': 8900,
-                'posts': 260,
-                'headline': 'Engineering Manager | Remote Team Expert | Software Team Culture',
-                'location': 'San Diego, CA'
-            },
-            {
-                'name': 'James RemoteWork',
-                'username': 'jamesremotework',
-                'connections': 10500,
-                'posts': 340,
-                'headline': 'Remote Work Consultant | Distributed Teams | Digital Nomad',
-                'location': 'Remote Worldwide'
-            },
-            {
-                'name': 'Ana Agile',
-                'username': 'anaagile',
-                'connections': 7200,
-                'posts': 195,
-                'headline': 'Agile Coach | Scrum Master | Software Development Process',
-                'location': 'Boston, MA'
-            },
-            # Mental Health & Therapy (for Radical Therapy)
-            {
-                'name': 'Dr. Lisa Therapist',
-                'username': 'drlistherapist',
-                'connections': 5500,
-                'posts': 145,
-                'headline': 'Licensed Therapist | Mental Health Advocate | Wellness Coach',
-                'location': 'Seattle, WA'
-            },
-            {
-                'name': 'Dr. Mark Psychology',
-                'username': 'drmarkpsych',
-                'connections': 6800,
-                'posts': 220,
-                'headline': 'Workplace Psychology | Team Dynamics | Mental Health in Tech',
-                'location': 'Minneapolis, MN'
-            },
-            {
-                'name': 'Sarah Mindfulness',
-                'username': 'sarahmindfulness',
-                'connections': 4200,
-                'posts': 180,
-                'headline': 'Mindfulness Coach | Stress Management | Developer Wellbeing',
-                'location': 'Boulder, CO'
-            },
-            # Additional Business & Leadership
-            {
-                'name': 'Kevin Strategy',
-                'username': 'kevinstrategy',
-                'connections': 13500,
-                'posts': 410,
-                'headline': 'Business Strategy Consultant | Digital Transformation | Growth Hacking',
-                'location': 'Miami, FL'
-            },
-            {
-                'name': 'Jennifer Leadership',
-                'username': 'jennleadership',
-                'connections': 9800,
-                'posts': 275,
-                'headline': 'Executive Coach | Leadership Development | Team Performance',
-                'location': 'Nashville, TN'
-            }
-        ]
+        # Method 1: Search via Google for LinkedIn profiles
+        linkedin_profiles = await self._search_linkedin_via_google(keywords, max_results)
         
         for profile_data in linkedin_profiles[:max_results]:
             # Check alignment with brand
-            if any(keyword.lower() in profile_data['headline'].lower() for keyword in keywords):
-                # Use LinkedIn search URL instead of fake profile URL
-                search_terms = "+".join(keywords[:2])  # Use first 2 keywords
-                search_url = f"https://www.linkedin.com/search/results/people/?keywords={search_terms}"
-                
+            headline = profile_data.get('headline', '')
+            if any(keyword.lower() in headline.lower() for keyword in keywords):
                 profile = SocialMediaProfile(
                     platform="linkedin",
-                    username=profile_data['username'],
-                    display_name=profile_data['name'],
-                    profile_url=search_url,  # Use search URL instead of fake profile
-                    verified=False,  # LinkedIn doesn't have verification badges
-                    followers=profile_data['connections'],
-                    posts_count=profile_data['posts'],
-                    engagement_rate=self._estimate_linkedin_engagement(profile_data['connections']),
-                    bio=profile_data['headline'],
-                    location=profile_data['location']
+                    username=profile_data.get('username', ''),
+                    display_name=profile_data.get('name', ''),
+                    profile_url=profile_data.get('url', ''),
+                    verified=False,
+                    followers=profile_data.get('connections', 0),
+                    posts_count=profile_data.get('posts', 0),
+                    engagement_rate=self._estimate_linkedin_engagement(profile_data.get('connections', 0)),
+                    bio=headline,
+                    location=profile_data.get('location', '')
                 )
                 profiles.append(profile)
         
+        if not profiles:
+            logger.info(f"📝 No LinkedIn profiles found via search for {brand}")
+        
         logger.info(f"✅ Found {len(profiles)} LinkedIn thought leaders for {brand}")
         return profiles
+    
+    async def _search_linkedin_via_google(self, keywords: List[str], max_results: int) -> List[Dict]:
+        """Search for real LinkedIn profiles via Google"""
+        profiles = []
+        
+        try:
+            for keyword in keywords[:3]:
+                search_query = f'site:linkedin.com/in/ "{keyword}"'
+                url = "https://www.google.com/search"
+                params = {
+                    'q': search_query,
+                    'num': max_results,
+                }
+                headers = {
+                    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+                
+                async with self.session.get(url, params=params, headers=headers) as response:
+                    if response.status == 200:
+                        html = await response.text()
+                        import re
+                        from urllib.parse import unquote
+                        
+                        # Extract LinkedIn profile URLs from Google results
+                        pattern = r'/url\?q=(https://(?:www\.)?linkedin\.com/in/[^&\s"]+)'
+                        matches = re.findall(pattern, html)
+                        
+                        for match in matches:
+                            profile_url = unquote(match).split('&')[0]
+                            username = profile_url.rstrip('/').split('/in/')[-1].split('?')[0]
+                            
+                            if username and len(profiles) < max_results:
+                                # Extract name/headline from Google snippet
+                                profile_data = self._extract_linkedin_from_google(html, profile_url, username, keyword)
+                                if profile_data:
+                                    profiles.append(profile_data)
+                
+                await asyncio.sleep(2)  # Rate limiting
+                
+        except Exception as e:
+            logger.warning(f"LinkedIn Google search failed: {e}")
+        
+        logger.info(f"🔍 Found {len(profiles)} LinkedIn profiles via Google")
+        return profiles
+    
+    def _extract_linkedin_from_google(self, html: str, profile_url: str, username: str, keyword: str) -> Dict:
+        """Extract LinkedIn profile info from Google search results"""
+        try:
+            import re
+            
+            # Try to find the title/name near this URL in the search results
+            # Google typically shows "Name - Title - LinkedIn" in the title
+            escaped_username = re.escape(username)
+            title_pattern = rf'([^<>]{{3,80}})\s*[-–|]\s*[^<>]*?(?:LinkedIn|linkedin)[^<>]*?{escaped_username}'
+            title_match = re.search(title_pattern, html, re.IGNORECASE)
+            
+            name = username.replace('-', ' ').title()
+            headline = keyword
+            
+            if title_match:
+                title_text = title_match.group(1).strip()
+                # "FirstName LastName - Title" pattern
+                parts = re.split(r'\s*[-–|]\s*', title_text)
+                if parts:
+                    name = parts[0].strip()
+                    if len(parts) > 1:
+                        headline = parts[1].strip()
+            
+            return {
+                'name': name,
+                'username': username,
+                'url': profile_url,
+                'headline': headline,
+                'connections': 0,  # Can't determine from Google search
+                'posts': 0,
+                'location': ''
+            }
+        except Exception as e:
+            logger.warning(f"Failed to extract LinkedIn data for {username}: {e}")
+            return None
     
     def _estimate_linkedin_engagement(self, connections: int) -> float:
         """Estimate LinkedIn engagement rate"""
@@ -1409,46 +1491,8 @@ class TwitterSearcher(PlatformSearcher):
         if not twitter_profiles:
             twitter_profiles = await self._search_twitter_api(keywords, max_results)
         
-        # Fallback: Generate some examples for testing
         if not twitter_profiles:
-            twitter_profiles = [
-            {
-                'username': 'startupguru',
-                'display_name': 'Startup Guru 🚀',
-                'followers': 85000,
-                'following': 1500,
-                'tweets': 12000,
-                'bio': 'Helping founders build unicorns • Angel investor • Startup mentor',
-                'verified': True
-            },
-            {
-                'username': 'codinglife',
-                'display_name': 'Coding Life',
-                'followers': 45000,
-                'following': 800,
-                'tweets': 8500,
-                'bio': 'Full-stack developer • JavaScript enthusiast • Open source lover',
-                'verified': False
-            },
-            {
-                'username': 'nocodetools',
-                'display_name': 'NoCode Tools',
-                'followers': 32000,
-                'following': 1200,
-                'tweets': 5500,
-                'bio': 'Building without code • Tool reviews • Automation tips',
-                'verified': False
-            },
-            {
-                'username': 'mentalwellness',
-                'display_name': 'Mental Wellness',
-                'followers': 67000,
-                'following': 900,
-                'tweets': 9200,
-                'bio': 'Mental health awareness • Therapy resources • Self-care advocate',
-                'verified': True
-            }
-        ]
+            logger.info(f"📝 No Twitter profiles found for {brand} — skipping")
         
         for profile_data in twitter_profiles[:max_results]:
             # Check alignment with brand
@@ -2144,130 +2188,14 @@ class PodcastSearcher(PlatformSearcher):
         return podcasts
     
     async def _search_podcasts_via_google(self, keywords: List[str], max_results: int) -> List[Dict]:
-        """Search for podcasts using Google search and generate sample data for testing"""
-        podcasts = []
-        
-        # For testing, generate some sample podcast data based on keywords
-        if keywords:
-            sample_podcasts = self._generate_sample_podcast_data(keywords, max_results)
-            podcasts.extend(sample_podcasts)
-        
-        # TODO: Uncomment and fix the real Google search when needed
-        # try:
-        #     for keyword in keywords[:2]:  # Limit searches
-        #         search_query = f'"{keyword}" podcast guest booking contact'
-        #         url = "https://www.google.com/search"
-        #         params = {
-        #             'q': search_query,
-        #             'num': 10
-        #         }
-        #         headers = {
-        #             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-        #         }
-        #         
-        #         async with self.session.get(url, params=params, headers=headers) as response:
-        #             if response.status == 200:
-        #                 html = await response.text()
-        #                 
-        #                 # Extract podcast information from search results
-        #                 podcast_results = self._parse_google_podcast_results(html)
-        #                 podcasts.extend(podcast_results)
-        #         
-        #         await asyncio.sleep(2)  # Rate limiting
-        #         
-        # except Exception as e:
-        #     logger.warning(f"Google podcast search failed: {e}")
-        
-        logger.info(f"🌐 Google found {len(podcasts)} podcast mentions")
-        return podcasts
-    
-    def _generate_sample_podcast_data(self, keywords: List[str], max_results: int) -> List[Dict]:
-        """Generate sample podcast data for testing purposes"""
-        sample_podcasts = []
-        
-        # Sample podcast templates based on keywords
-        podcast_templates = {
-            'entrepreneur': [
-                {
-                    'name': 'The Entrepreneur Show',
-                    'host_name': 'Sarah Johnson',
-                    'description': 'Weekly interviews with successful entrepreneurs sharing their stories and insights.',
-                    'episode_count': 156,
-                    'website': 'https://entrepreneurshow.com',
-                    'email': 'sarah@entrepreneurshow.com',
-                    'guest_application_url': 'https://entrepreneurshow.com/be-a-guest',
-                },
-                {
-                    'name': 'Startup Stories Podcast',
-                    'host_name': 'Mike Chen',
-                    'description': 'Deep dives into startup journeys from idea to exit.',
-                    'episode_count': 89,
-                    'website': 'https://startupstories.fm',
-                    'email': 'mike@startupstories.fm',
-                    'guest_application_url': 'https://startupstories.fm/guest-form',
-                }
-            ],
-            'programming': [
-                {
-                    'name': 'Code & Coffee',
-                    'host_name': 'Alex Rivera',
-                    'description': 'Conversations about programming, technology, and developer life.',
-                    'episode_count': 203,
-                    'website': 'https://codeandcoffee.dev',
-                    'email': 'alex@codeandcoffee.dev',
-                    'guest_application_url': 'https://codeandcoffee.dev/guests',
-                }
-            ],
-            'mental health': [
-                {
-                    'name': 'Mindful Conversations',
-                    'host_name': 'Dr. Lisa Thompson',
-                    'description': 'Exploring mental health, wellness, and personal growth.',
-                    'episode_count': 124,
-                    'website': 'https://mindfulconversations.com',
-                    'email': 'lisa@mindfulconversations.com',
-                    'guest_application_url': 'https://mindfulconversations.com/be-a-guest',
-                }
-            ]
-        }
-        
-        # Find matching templates based on keywords
-        for keyword in keywords[:max_results]:
-            for template_key, template_podcasts in podcast_templates.items():
-                if template_key.lower() in keyword.lower():
-                    sample_podcasts.extend(template_podcasts)
-                    break
-        
-        return sample_podcasts[:max_results]
-    
-    def _parse_google_podcast_results(self, html: str) -> List[Dict]:
-        """Parse Google search results for podcast information"""
-        podcasts = []
-        
-        try:
-            import re
-            
-            # Look for podcast-related links and titles
-            # This is a simplified implementation
-            podcast_patterns = [
-                r'<h3[^>]*>([^<]*podcast[^<]*)</h3>',
-                r'<a[^>]*href="[^"]*podcast[^"]*"[^>]*>([^<]+)</a>'
-            ]
-            
-            for pattern in podcast_patterns:
-                matches = re.findall(pattern, html, re.IGNORECASE)
-                for match in matches[:5]:  # Limit results
-                    if 'podcast' in match.lower() and len(match) > 5:
-                        podcasts.append({
-                            'name': match.strip(),
-                            'source': 'google_search',
-                            'description': f"Podcast found via Google search",
-                        })
-        
-        except Exception as e:
-            logger.warning(f"Failed to parse Google podcast results: {e}")
-        
-        return podcasts
+        """Search for podcasts using Google search.
+
+        Real Google search is not yet implemented.  Return an empty list
+        so no fabricated data ends up in the database.
+        """
+        # TODO: Implement real Google search for podcast discovery
+        logger.info("Google podcast search not yet implemented — skipping")
+        return []
     
     async def _search_rss_directories(self, keywords: List[str], max_results: int) -> List[Dict]:
         """Search RSS directories for podcasts"""
@@ -2535,7 +2463,7 @@ class BrandInfluencerDiscovery:
     async def discover_brand_influencers(self, brand: str, max_per_platform: int = 25) -> Dict[str, List[InfluencerProfile]]:
         """Discover influencers across all platforms for a brand"""
         results = {}
-        strategy = BRAND_INFLUENCER_STRATEGIES.get(brand, {})
+        strategy = ensure_brand_strategy(brand) or {}
         
         if not strategy:
             logger.error(f"❌ No strategy defined for brand: {brand}")
@@ -2854,7 +2782,8 @@ async def main():
     brand = "foundry"
     results = await discovery.discover_brand_influencers(brand, max_per_platform=3)
     
-    print(f"\n🎯 Influencer Discovery Results for {BRAND_INFLUENCER_STRATEGIES[brand]['name']}")
+    strategy = ensure_brand_strategy(brand) or {'name': brand}
+    print(f"\n🎯 Influencer Discovery Results for {strategy['name']}")
     print("=" * 60)
     
     total_influencers = 0

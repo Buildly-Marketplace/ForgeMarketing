@@ -4,8 +4,8 @@
 <div class="space-y-6" x-data="dashboard()">
     <!-- Hero Section -->
     <div class="gradient-bg rounded-lg p-8 text-white card-shadow">
-        <h1 class="text-4xl font-bold mb-4">🚀 Marketing Automation Dashboard</h1>
-        <p class="text-xl opacity-90 mb-6">Unified AI-powered content generation for all your brands</p>
+        <h1 class="text-4xl font-bold mb-4">Marketing Command Center</h1>
+        <p class="text-xl opacity-90 mb-6">Plan campaigns, move drafts through review, and track manual publishing work.</p>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="bg-white bg-opacity-20 rounded-lg p-4">
                 <div class="flex items-center">
@@ -21,7 +21,7 @@
                     <i class="fas fa-robot text-2xl mr-3"></i>
                     <div>
                         <div class="text-2xl font-bold" x-text="aiStatus ? '✓' : '✗'">-</div>
-                        <div class="text-sm opacity-80">AI Integration</div>
+                        <div class="text-sm opacity-80">AI Drafting</div>
                     </div>
                 </div>
             </div>
@@ -30,7 +30,7 @@
                     <i class="fas fa-chart-line text-2xl mr-3"></i>
                     <div>
                         <div class="text-2xl font-bold" x-text="contentGenerated">0</div>
-                        <div class="text-sm opacity-80">Content Generated</div>
+                        <div class="text-sm opacity-80">Drafts Created</div>
                     </div>
                 </div>
             </div>
@@ -50,52 +50,84 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div class="bg-white rounded-lg p-6 card-shadow">
             <div class="flex items-center mb-4">
-                <i class="fas fa-magic text-purple-600 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold">Quick Generate</h3>
+                <i class="fas fa-bullhorn text-purple-600 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold">Plan Campaigns</h3>
             </div>
-            <p class="text-gray-600 mb-4">Generate content instantly for any brand</p>
-            <a href="/generate" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
-                Start Generating
+            <p class="text-gray-600 mb-4">Create campaign timelines and track deliverables.</p>
+            <a href="/content-calendar" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                Open Calendar
             </a>
         </div>
         
         <div class="bg-white rounded-lg p-6 card-shadow">
             <div class="flex items-center mb-4">
-                <i class="fas fa-palette text-blue-600 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold">Brand Management</h3>
+                <i class="fas fa-tasks text-blue-600 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold">Manual Tasks</h3>
             </div>
-            <p class="text-gray-600 mb-4">Configure and manage your brand voices</p>
-            <a href="/brands" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                Manage Brands
+            <p class="text-gray-600 mb-4">Track human steps for setup, approvals, and posting.</p>
+            <a href="/content-calendar" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                View Task Board
             </a>
         </div>
         
         <div class="bg-white rounded-lg p-6 card-shadow">
             <div class="flex items-center mb-4">
-                <i class="fas fa-envelope text-red-600 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold">Email Outreach</h3>
+                <i class="fas fa-check-circle text-red-600 text-2xl mr-3"></i>
+                <h3 class="text-lg font-semibold">Review Drafts</h3>
             </div>
-            <p class="text-gray-600 mb-4">Manage user outreach campaigns by brand</p>
-            <a href="/outreach" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
-                Manage Outreach
+            <p class="text-gray-600 mb-4">Move content from draft to approved and ready to schedule.</p>
+            <a href="/content-calendar" class="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors">
+                Review Queue
             </a>
         </div>
         
         <div class="bg-white rounded-lg p-6 card-shadow">
             <div class="flex items-center mb-4">
                 <i class="fas fa-chart-bar text-green-600 text-2xl mr-3"></i>
-                <h3 class="text-lg font-semibold">View Analytics</h3>
+                <h3 class="text-lg font-semibold">Track Performance</h3>
             </div>
-            <p class="text-gray-600 mb-4">Track performance and engagement metrics</p>
+            <p class="text-gray-600 mb-4">Capture 24h and 7d post results for weekly review.</p>
             <a href="/analytics" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-                View Reports
+                Open Analytics
             </a>
+        </div>
+    </div>
+
+    <!-- Intern Action Board -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <h3 class="text-lg font-semibold mb-3">Due Today</h3>
+            <template x-for="item in dueToday" :key="item.id">
+                <p class="text-sm text-gray-700 mb-2" x-text="item.task_name"></p>
+            </template>
+            <p x-show="dueToday.length === 0" class="text-sm text-gray-500">No items due today.</p>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <h3 class="text-lg font-semibold mb-3">Needs Review</h3>
+            <template x-for="item in needsReview" :key="item.id">
+                <p class="text-sm text-gray-700 mb-2" x-text="item.task_name"></p>
+            </template>
+            <p x-show="needsReview.length === 0" class="text-sm text-gray-500">No drafts waiting for review.</p>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <h3 class="text-lg font-semibold mb-3">Ready To Schedule</h3>
+            <template x-for="item in readyToSchedule" :key="item.id">
+                <p class="text-sm text-gray-700 mb-2" x-text="item.task_name"></p>
+            </template>
+            <p x-show="readyToSchedule.length === 0" class="text-sm text-gray-500">No items in scheduling queue.</p>
+        </div>
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <h3 class="text-lg font-semibold mb-3">Performance Checks</h3>
+            <template x-for="item in performanceChecks" :key="item.id">
+                <p class="text-sm text-gray-700 mb-2" x-text="item.task_name"></p>
+            </template>
+            <p x-show="performanceChecks.length === 0" class="text-sm text-gray-500">No checks due right now.</p>
         </div>
     </div>
 
     <!-- Brand Overview -->
     <div class="bg-white rounded-lg p-6 card-shadow">
-        <h3 class="text-xl font-semibold mb-6">Brand Overview</h3>
+        <h3 class="text-xl font-semibold mb-6">Active Brands And Products</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {% for brand in brands %}
             <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
@@ -157,6 +189,10 @@ function dashboard() {
         contentGenerated: 0,
         lastUpdate: '-',
         recentActivity: [],
+        dueToday: [],
+        needsReview: [],
+        readyToSchedule: [],
+        performanceChecks: [],
         
         async init() {
             await this.loadStatus();
@@ -195,6 +231,8 @@ function dashboard() {
                         });
                     }
                 }
+
+                await this.loadMarketingWorkQueue();
                 
                 // Try to load real activity data from unified analytics
                 const outreachRes = await fetch('/api/outreach/overview');
@@ -241,9 +279,47 @@ function dashboard() {
                 this.lastUpdate = 'Error';
                 this.recentActivity = [
                     { id: 1, title: 'Connection Error', description: 'Failed to load dashboard data', time: 'Error', type: 'error' },
-                    { id: 2, title: 'OpenBuild Discovery', description: 'New targets identified', time: '08:15 AM' },
+                    { id: 2, title: 'Campaign Discovery', description: 'New targets identified', time: '08:15 AM' },
                     { id: 3, title: 'Analytics Report', description: 'Daily summary generated', time: '07:00 AM' }
                 ];
+            }
+        },
+
+        async loadMarketingWorkQueue() {
+            try {
+                const [tasksRes, campaignsRes] = await Promise.all([
+                    fetch('/api/marketing/tasks'),
+                    fetch('/api/marketing/campaigns')
+                ]);
+
+                if (!tasksRes.ok || !campaignsRes.ok) {
+                    return;
+                }
+
+                const tasksData = await tasksRes.json();
+                const campaignsData = await campaignsRes.json();
+
+                const tasks = tasksData.success ? tasksData.data : [];
+                const today = new Date().toISOString().split('T')[0];
+
+                this.dueToday = tasks.filter(t => (t.scheduled_date || '').startsWith(today) && t.status !== 'completed').slice(0, 5);
+                this.needsReview = tasks.filter(t => t.status === 'draft' || t.status === 'in_progress').slice(0, 5);
+                this.readyToSchedule = tasks.filter(t => t.status === 'scheduled').slice(0, 5);
+                this.performanceChecks = tasks.filter(t => t.status === 'completed').slice(0, 5);
+
+                const campaigns = campaignsData.success ? campaignsData.data : [];
+                const activeCampaigns = campaigns.filter(c => c.status === 'active');
+                if (activeCampaigns.length > 0) {
+                    this.recentActivity.unshift({
+                        id: `campaign-${Date.now()}`,
+                        title: 'Active Campaigns',
+                        description: `${activeCampaigns.length} campaign(s) currently active`,
+                        time: 'Now',
+                        type: 'info'
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load marketing queue:', error);
             }
         },
         

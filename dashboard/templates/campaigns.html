@@ -337,13 +337,7 @@ function campaignManager() {
             responseRate: 0,
             totalTargets: 0
         },
-        brands: [
-            { key: 'foundry', name: 'Foundry', targets: 100, emails_sent: 0, total_targets: 0, status: 'active', icon: 'fas fa-industry', color: 'bg-blue-600' },
-            { key: 'openbuild', name: 'Open Build', targets: 18, emails_sent: 0, total_targets: 0, status: 'active', icon: 'fas fa-code', color: 'bg-green-600' },
-            { key: 'buildly', name: 'Buildly', targets: 0, emails_sent: 0, total_targets: 0, status: 'inactive', icon: 'fas fa-cubes', color: 'bg-purple-600' },
-            { key: 'radical', name: 'Radical Therapy', targets: 0, emails_sent: 0, total_targets: 0, status: 'inactive', icon: 'fas fa-heart', color: 'bg-red-600' },
-            { key: 'oregonsoftware', name: 'Oregon Software', targets: 0, emails_sent: 0, total_targets: 0, status: 'inactive', icon: 'fas fa-laptop-code', color: 'bg-indigo-600' }
-        ],
+        brands: [],
         recentActivity: [],
         campaignReports: [],
         loadingReports: false,
@@ -682,7 +676,7 @@ function executeCampaign() {
 
 function executeAllCampaigns() {
     if (confirm('Execute campaigns for all brands? This will send outreach emails.')) {
-        const brands = ['foundry', 'openbuild', 'buildly'];
+        const brands = window._loadedBrands || [];
         
         brands.forEach((brand, index) => {
             setTimeout(() => {

@@ -1163,19 +1163,19 @@ def startup_intel_status():
             "plugin_id": "startup_intel",
             "description": PLUGIN_DESCRIPTION,
             "source_types": sorted(SOURCE_TYPES),
-            "free_sources": ["yc_companies", "sbir_awards", "nsf_awards", "sec_edgar"],
+            "free_sources": ["yc_companies", "sbir_awards", "nsf_awards", "sec_edgar", "product_hunt", "hacker_news"],
             "paid_sources": {
                 "product_hunt_api": {
                     "label": "Product Hunt API v2",
                     "configured": key_status.get("product_hunt", False),
                     "get_key_url": "https://producthunt.com/v2/oauth/applications",
-                    "instructions": "Create an application, generate a Bearer token under 'Developer Token'.",
+                    "instructions": "Optional. Create an application, generate a Bearer token under 'Developer Token'.",
                 },
                 "opencorporates": {
                     "label": "OpenCorporates",
                     "configured": key_status.get("opencorporates", False),
                     "get_key_url": "https://opencorporates.com/api_accounts/new",
-                    "instructions": "Register for a free API account. Copy the API token.",
+                    "instructions": "Optional paid/registered API access. Add the API token if your plan includes it.",
                 },
                 "companies_house": {
                     "label": "Companies House (UK)",

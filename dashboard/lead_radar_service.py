@@ -657,10 +657,23 @@ def seed_startup_sources_for_brand(brand_name: str) -> dict:
             "notes": "Companies that recently filed Form D equity raises. Companies post-raise often need to scale teams fast.",
         },
         {
+            "name": f"{display_name} — Product Hunt Feed",
+            "source_type": "product_hunt",
+            "url": "https://www.producthunt.com/feed",
+            "run_frequency": "daily",
+            "notes": "Free Product Hunt RSS feed. Good for newly launched products without requiring API credentials.",
+        },
+        {
+            "name": f"{display_name} — Hacker News Launches",
+            "source_type": "hacker_news",
+            "run_frequency": "daily",
+            "notes": "Launch HN and startup discussions from Hacker News for newly active startup signals.",
+        },
+        {
             "name": f"{display_name} — Product Hunt API",
             "source_type": "product_hunt_api",
             "run_frequency": "daily",
-            "notes": "Newly launched products on Product Hunt. Requires API token in Admin → System Config → Startup Intel.",
+            "notes": "Optional API source for Product Hunt GraphQL. Requires API token in Admin → System Config → Startup Intel.",
         },
     ]
 
@@ -677,7 +690,7 @@ def seed_startup_sources_for_brand(brand_name: str) -> dict:
             brand_name=brand_name,
             name=tmpl["name"],
             source_type=tmpl["source_type"],
-            url="",
+            url=tmpl.get("url", ""),
             query_keywords=all_kw[:4],
             run_frequency=freq,
             next_run_at=datetime.utcnow() if freq in {"daily", "weekly", "monthly"} else None,

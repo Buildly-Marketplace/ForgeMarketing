@@ -14,8 +14,10 @@ Free sources (no API key):
   sbir_awards    — SBIR/STTR government award recipients
   nsf_awards     — NSF research award recipients
   sec_edgar      — SEC Form D equity fundraising filings
+    product_hunt   — Product Hunt RSS feed
+    hacker_news    — Hacker News API search
 
-Paid/registered sources (free tier, API key required):
+API-key sources (optional):
   product_hunt_api  — Product Hunt GraphQL API v2
   opencorporates    — OpenCorporates company search API
   companies_house   — UK Companies House API
@@ -41,7 +43,7 @@ PLUGIN_ID = "startup_intel"
 PLUGIN_LABEL = "Startup Intel"
 PLUGIN_DESCRIPTION = (
     "Discovers early-stage startups from YCombinator, SBIR/STTR, NSF, "
-    "SEC EDGAR Form D filings, Product Hunt, OpenCorporates, and Companies House."
+    "SEC EDGAR Form D filings, Product Hunt RSS/HN, OpenCorporates, and Companies House."
 )
 
 # Keys stored in SystemConfig (or env fallback)
@@ -54,6 +56,7 @@ CONFIG_KEYS = {
 
 SOURCE_TYPES = {
     "yc_companies", "sbir_awards", "nsf_awards", "sec_edgar",
+    "product_hunt", "hacker_news",
     "product_hunt_api", "opencorporates", "companies_house",
 }
 

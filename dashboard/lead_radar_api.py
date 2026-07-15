@@ -6,7 +6,8 @@ Human-in-the-loop regional lead intelligence. No auto-send behavior.
 from collections import Counter
 from datetime import datetime, timedelta
 
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, redirect, render_template, request, url_for
+from flask_login import current_user
 
 from dashboard.models import Brand, db
 from dashboard.lead_radar_models import (
@@ -46,6 +47,15 @@ from dashboard.lead_radar_service import (
 
 
 lead_api_bp = Blueprint("lead_api", __name__)
+
+
+@lead_api_bp.before_request
+def require_login():
+    if getattr(current_user, 'is_authenticated', False):
+        return None
+    if request.path.startswith('/api/'):
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+    return redirect(url_for('auth.login', next=request.path))
 
 
 def _dt(value):

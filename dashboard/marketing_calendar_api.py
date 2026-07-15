@@ -3,6 +3,7 @@ Marketing Calendar API endpoints for campaign and task management.
 """
 
 from flask import Blueprint, request, jsonify
+from flask_login import current_user
 from datetime import datetime, timedelta
 from dashboard.marketing_calendar_models import (
     MarketingCalendar, MarketingTask, ContentTemplate, MarketingWeekly,
@@ -128,6 +129,12 @@ def _call_do_agent_chat(agent_url, prompt, model='', token=''):
 
 
 DEFAULT_DO_MARKETING_AGENT_URL = "https://upssgpoiscmhlp3uuvm65hyn.agents.do-ai.run"
+
+
+@marketing_calendar_bp.before_request
+def require_login():
+    if not getattr(current_user, 'is_authenticated', False):
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
 
 
 def _serialize_datetime(value):

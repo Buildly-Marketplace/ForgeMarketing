@@ -24,6 +24,7 @@ API-key sources (optional):
 """
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timedelta
 from html import unescape
@@ -38,6 +39,8 @@ except Exception:
     BeautifulSoup = None
 
 from dashboard.lead_radar_adapters import BaseLeadSourceAdapter, DEFAULT_TIMEOUT, USER_AGENT
+
+logger = logging.getLogger(__name__)
 
 PLUGIN_ID = "startup_intel"
 PLUGIN_LABEL = "Startup Intel"
@@ -158,11 +161,19 @@ class YCombinatorAdapter(BaseLeadSourceAdapter):
 # ── SBIR Awards ────────────────────────────────────────────────────────────────
 
 class SBIRAdapter(BaseLeadSourceAdapter):
-    """SBIR/STTR award recipients — deep-tech startups with government funding."""
+    """SBIR/STTR award recipients — deep-tech startups with government funding.
+
+    Public/free API, no key required. Host is api.www.sbir.gov (the bare
+    api.sbir.gov does NOT resolve). A descriptive User-Agent is required or
+    the endpoint returns 403. The API is frequently under maintenance / rate
+    limited, so failures degrade to 0 candidates with a warning rather than
+    raising.
+    """
     source_type = "sbir_awards"
-    _BASE = "https://api.sbir.gov/public/awards"
+    _BASE = "https://api.www.sbir.gov/public/api/awards"
 
     def fetch_candidates(self, lead_source, payload=None):
+        self.last_warning = ""  # adapters are reused singletons; clear stale state
         payload = payload or {}
         keywords = self._keywords(lead_source, payload)
         if not keywords:
@@ -174,48 +185,72 @@ class SBIRAdapter(BaseLeadSourceAdapter):
             try:
                 resp = requests.get(
                     self._BASE,
-                    params={"keyword": kw, "rows": min(limit, 25), "start": 0},
+                    params={"firm": kw, "rows": min(limit, 25), "start": 0, "format": "json"},
                     timeout=DEFAULT_TIMEOUT,
                     headers={"User-Agent": USER_AGENT},
                 )
+                if resp.status_code in (429, 503):
+                    last_error = f"SBIR API temporarily unavailable (HTTP {resp.status_code})"
+                    continue
                 resp.raise_for_status()
                 data = resp.json()
             except Exception as exc:
                 last_error = exc
                 continue
-            for award in (data.get("data") or []):
-                firm = award.get("firm") or {}
-                company = firm.get("name") or award.get("firm_name", "")
-                pi = f"{award.get('pi_first_name','')} {award.get('pi_last_name','')}".strip()
+            # The API returns a JSON list of award objects (older builds wrapped
+            # them in {"data": [...]}). Tolerate both, and firm as str or dict.
+            awards = data if isinstance(data, list) else (data.get("data") or data.get("results") or [])
+            for award in awards:
+                if not isinstance(award, dict):
+                    continue
+                firm = award.get("firm")
+                if isinstance(firm, dict):
+                    company = firm.get("name") or award.get("firm_name", "")
+                    website = firm.get("website", "")
+                    state = firm.get("state_code", "") or award.get("state", "")
+                else:
+                    company = firm or award.get("firm_name", "")
+                    website = award.get("company_url") or award.get("award_link", "")
+                    state = award.get("state", "")
+                pi = (award.get("pi_name")
+                      or f"{award.get('pi_first_name','')} {award.get('pi_last_name','')}".strip())
                 title = award.get("award_title", "")
                 abstract = (award.get("abstract", "") or "")[:350]
-                amount = award.get("award_amount") or 0
+                try:
+                    amount = int(award.get("award_amount") or 0)
+                    amount_str = f" — ${amount:,}"
+                except (TypeError, ValueError):
+                    amount_str = ""
                 agency = award.get("agency", "")
                 phase = award.get("phase", "")
-                website = firm.get("website", "")
-                state = firm.get("state_code", "") or award.get("state_code", "")
                 out.append(self.normalize_candidate({
                     "name": pi,
                     "company": company,
-                    "title": f"{agency} SBIR Phase {phase} — ${int(amount):,}",
+                    "title": f"{agency} SBIR Phase {phase}{amount_str}".strip(),
                     "url": website,
-                    "text": f"{title}. {abstract}",
+                    "text": f"{title}. {abstract}".strip(),
                     "segment": "deep_tech",
                     "region": f"US-{state}" if state else "",
                 }))
                 if len(out) >= limit:
                     return out
         if not out and last_error:
-            raise RuntimeError(f"SBIR API error: {last_error}")
+            logger.warning("SBIR source '%s' returned no candidates: %s", getattr(lead_source, "name", "?"), last_error)
+            self.last_warning = f"SBIR API unavailable ({last_error}); 0 candidates."
         return out
 
 
 # ── NSF Awards ─────────────────────────────────────────────────────────────────
 
 class NSFAwardsAdapter(BaseLeadSourceAdapter):
-    """NSF award recipients — research-backed startups and university spinouts."""
+    """NSF award recipients — research-backed startups and university spinouts.
+
+    Public/free API, no key. Host is www.research.gov (the bare
+    api.research.gov does NOT resolve). Failures degrade to 0 candidates
+    with a warning rather than raising.
+    """
     source_type = "nsf_awards"
-    _BASE = "https://api.research.gov/awardapi-service/v1/awards.json"
+    _BASE = "https://www.research.gov/awardapi-service/v1/awards.json"
     _FIELDS = ",".join([
         "id", "title", "piFirstName", "piLastName", "awardeeName",
         "awardeeCity", "awardeeStateCode", "awardAmount", "startDate",
@@ -223,6 +258,7 @@ class NSFAwardsAdapter(BaseLeadSourceAdapter):
     ])
 
     def fetch_candidates(self, lead_source, payload=None):
+        self.last_warning = ""  # adapters are reused singletons; clear stale state
         payload = payload or {}
         keywords = self._keywords(lead_source, payload)
         if not keywords:
@@ -264,7 +300,8 @@ class NSFAwardsAdapter(BaseLeadSourceAdapter):
                 if len(out) >= limit:
                     return out
         if not out and last_error:
-            raise RuntimeError(f"NSF API error: {last_error}")
+            logger.warning("NSF source '%s' returned no candidates: %s", getattr(lead_source, "name", "?"), last_error)
+            self.last_warning = f"NSF API unavailable ({last_error}); 0 candidates."
         return out
 
 

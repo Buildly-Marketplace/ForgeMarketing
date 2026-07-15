@@ -26,6 +26,10 @@ USER_AGENT = "ForgeMarketingLeadRadar/1.0 (+https://market.firstcityfoundry.com)
 
 class BaseLeadSourceAdapter:
     source_type = "base"
+    # Non-fatal message from the last fetch (e.g. a public API that was
+    # unreachable/rate-limited). Surfaced in the research-job log without
+    # failing the run. Class-level default so getattr is always safe.
+    last_warning = ""
 
     def validate_config(self, lead_source) -> List[str]:
         return []

@@ -48,3 +48,4 @@ reports/
 
 # Test artifacts
 email_test_results_*.json
+.claude/

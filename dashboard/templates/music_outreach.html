@@ -1,0 +1,739 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>[x-cloak] { display: none !important; }</style>
+
+<div class="space-y-6" x-data="meraOutreach()" x-cloak>
+
+    <!-- ── Header ─────────────────────────────────────────────────────── -->
+    <div class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">
+                    <i class="fas fa-music mr-2 text-purple-600"></i>Music Promo Outreach
+                </h1>
+                <p class="text-gray-600 mt-1">My Evil Robot Army — Jazz radio &amp; playlist curator campaigns</p>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    <i class="fas fa-compact-disc mr-1"></i> NullRecords
+                </span>
+                <button @click="openScheduleModal()"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium">
+                    <i class="fas fa-calendar-alt mr-2"></i>Schedule Campaign
+                </button>
+                <button @click="runPreview()"
+                        :disabled="running"
+                        class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-medium">
+                    <i class="fas fa-eye mr-2" :class="{'fa-spin': running && mode==='preview'}"></i>
+                    <span x-show="!(running && mode==='preview')">Preview</span>
+                    <span x-show="running && mode==='preview'">Generating...</span>
+                </button>
+                <button @click="runSend()"
+                        :disabled="running || selectedContacts.length === 0"
+                        class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium">
+                    <i class="fas fa-paper-plane mr-2" :class="{'fa-spin': running && mode==='send'}"></i>
+                    <span x-show="!(running && mode==='send')">Send Selected</span>
+                    <span x-show="running && mode==='send'">Sending...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Stats Row ──────────────────────────────────────────────────── -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-lg p-5 card-shadow text-center">
+            <p class="text-3xl font-bold text-purple-600" x-text="stats.totalContacts">0</p>
+            <p class="text-sm text-gray-600 mt-1">Total Contacts</p>
+        </div>
+        <div class="bg-white rounded-lg p-5 card-shadow text-center">
+            <p class="text-3xl font-bold text-blue-600" x-text="stats.radioStations">0</p>
+            <p class="text-sm text-gray-600 mt-1">Radio Stations</p>
+        </div>
+        <div class="bg-white rounded-lg p-5 card-shadow text-center">
+            <p class="text-3xl font-bold text-green-600" x-text="stats.playlistCurators">0</p>
+            <p class="text-sm text-gray-600 mt-1">Playlist Curators</p>
+        </div>
+        <div class="bg-white rounded-lg p-5 card-shadow text-center">
+            <p class="text-3xl font-bold text-orange-600" x-text="stats.emailsSent">0</p>
+            <p class="text-sm text-gray-600 mt-1">Emails Sent</p>
+        </div>
+    </div>
+
+    <!-- ── Albums + Filter Row ───────────────────────────────────────── -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Albums Panel -->
+        <div class="bg-white rounded-lg p-6 card-shadow">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-compact-disc mr-2 text-purple-500"></i>Albums (Last 3 Years)
+            </h3>
+            <div class="space-y-3">
+                <template x-for="album in albums" :key="album.title">
+                    <div class="border rounded-lg p-3 hover:border-purple-300 transition-colors cursor-pointer"
+                         :class="selectedAlbum === album.title ? 'border-purple-500 bg-purple-50' : 'border-gray-200'"
+                         @click="selectedAlbum = album.title">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-gray-900 truncate" x-text="album.title"></p>
+                                <p class="text-xs text-gray-500 mt-0.5" x-text="album.year + ' · ' + album.genre"></p>
+                            </div>
+                            <span class="ml-2 text-xs font-medium px-2 py-0.5 rounded-full bg-purple-100 text-purple-700"
+                                  x-text="album.year"></span>
+                        </div>
+                        <div class="flex gap-2 mt-2 flex-wrap">
+                            <a :href="album.spotify" target="_blank"
+                               class="text-xs text-green-600 hover:text-green-800"
+                               @click.stop>
+                                <i class="fab fa-spotify mr-1"></i>Spotify
+                            </a>
+                            <a :href="album.store" target="_blank"
+                               class="text-xs text-purple-600 hover:text-purple-800"
+                               @click.stop>
+                                <i class="fas fa-store mr-1"></i>Store
+                            </a>
+                            <template x-if="album.smart_link">
+                                <a :href="album.smart_link" target="_blank"
+                                   class="text-xs text-blue-600 hover:text-blue-800"
+                                   @click.stop>
+                                    <i class="fas fa-link mr-1"></i>Smart Link
+                                </a>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Contact Filters + Table (spans 2 cols) -->
+        <div class="lg:col-span-2 bg-white rounded-lg p-6 card-shadow">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-address-book mr-2 text-blue-500"></i>Contacts
+                </h3>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button @click="filterType = 'all'"
+                            :class="filterType==='all' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'"
+                            class="px-3 py-1 rounded-full text-xs font-medium">All</button>
+                    <button @click="filterType = 'radio'"
+                            :class="filterType==='radio' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'"
+                            class="px-3 py-1 rounded-full text-xs font-medium">
+                        <i class="fas fa-broadcast-tower mr-1"></i>Radio
+                    </button>
+                    <button @click="filterType = 'playlist'"
+                            :class="filterType==='playlist' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-700'"
+                            class="px-3 py-1 rounded-full text-xs font-medium">
+                        <i class="fab fa-spotify mr-1"></i>Playlist
+                    </button>
+                    <button @click="toggleSelectAll()"
+                            class="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700 hover:bg-purple-200">
+                        <span x-show="selectedContacts.length < filteredContacts.length">Select All</span>
+                        <span x-show="selectedContacts.length >= filteredContacts.length">Deselect All</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Contact Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-200 text-left">
+                            <th class="pb-2 w-8"></th>
+                            <th class="pb-2 text-gray-600 font-medium">Name / Station</th>
+                            <th class="pb-2 text-gray-600 font-medium hidden md:table-cell">Type</th>
+                            <th class="pb-2 text-gray-600 font-medium hidden lg:table-cell">Album</th>
+                            <th class="pb-2 text-gray-600 font-medium">Status</th>
+                            <th class="pb-2 w-10"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <template x-for="contact in filteredContacts" :key="contact.email">
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="py-2 pr-2">
+                                    <input type="checkbox"
+                                           :value="contact.email"
+                                           :checked="selectedContacts.includes(contact.email)"
+                                           @change="toggleContact(contact.email)"
+                                           class="rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                </td>
+                                <td class="py-2">
+                                    <p class="font-medium text-gray-900 truncate max-w-xs" x-text="contact.station_or_playlist"></p>
+                                    <p class="text-xs text-gray-500 truncate" x-text="contact.email"></p>
+                                </td>
+                                <td class="py-2 hidden md:table-cell">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                                          :class="contact.type === 'radio' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'">
+                                        <i class="mr-1 text-xs"
+                                           :class="contact.type === 'radio' ? 'fas fa-broadcast-tower' : 'fab fa-spotify'"></i>
+                                        <span x-text="contact.type === 'radio' ? 'Radio' : 'Playlist'"></span>
+                                    </span>
+                                </td>
+                                <td class="py-2 hidden lg:table-cell">
+                                    <span class="text-xs text-gray-600 truncate max-w-xs block" x-text="contact.album_target"></span>
+                                </td>
+                                <td class="py-2">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                                          :class="{
+                                            'bg-gray-100 text-gray-600': contact.status === 'pending',
+                                            'bg-yellow-100 text-yellow-700': contact.status === 'previewed',
+                                            'bg-green-100 text-green-700': contact.status === 'sent',
+                                            'bg-red-100 text-red-700': contact.status === 'failed'
+                                          }">
+                                        <span x-text="contact.status || 'pending'"></span>
+                                    </span>
+                                </td>
+                                <td class="py-2">
+                                    <button @click="previewContact(contact)"
+                                            class="text-gray-400 hover:text-purple-600 transition-colors"
+                                            title="Preview email">
+                                        <i class="fas fa-eye text-xs"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="filteredContacts.length === 0">
+                            <td colspan="6" class="py-8 text-center text-gray-500 text-sm">No contacts found</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-xs text-gray-500 mt-3" x-text="`${selectedContacts.length} of ${filteredContacts.length} selected`"></p>
+        </div>
+    </div>
+
+    <!-- ── Email Preview Panel ────────────────────────────────────────── -->
+    <div x-show="previews.length > 0" class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-envelope-open-text mr-2 text-purple-500"></i>Email Previews
+                <span class="ml-2 text-sm font-normal text-gray-500" x-text="`(${previews.length} emails)`"></span>
+            </h3>
+            <div class="flex gap-2">
+                <button @click="previews = []" class="text-sm text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times mr-1"></i>Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Preview Tabs -->
+        <div class="flex gap-1 overflow-x-auto pb-2 mb-4 border-b border-gray-100">
+            <template x-for="(preview, idx) in previews" :key="preview.email">
+                <button @click="activePreview = idx"
+                        :class="activePreview === idx ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                        class="px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0">
+                    <span x-text="preview.station.length > 20 ? preview.station.slice(0,20)+'…' : preview.station"></span>
+                </button>
+            </template>
+        </div>
+
+        <!-- Active Preview -->
+        <template x-if="previews.length > 0 && activePreview < previews.length">
+            <div class="space-y-3">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <span class="text-gray-500 font-medium">To:</span>
+                        <span class="ml-2 text-gray-900" x-text="previews[activePreview].email"></span>
+                    </div>
+                    <div>
+                        <span class="text-gray-500 font-medium">Album:</span>
+                        <span class="ml-2 text-gray-900" x-text="previews[activePreview].album"></span>
+                    </div>
+                </div>
+                <div class="text-sm">
+                    <span class="text-gray-500 font-medium">Subject:</span>
+                    <span class="ml-2 text-gray-900 font-medium" x-text="previews[activePreview].subject"></span>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <pre class="text-sm text-gray-800 whitespace-pre-wrap font-sans leading-relaxed"
+                         x-text="previews[activePreview].body"></pre>
+                </div>
+                <div class="flex gap-2">
+                    <button @click="sendSingle(previews[activePreview])"
+                            :disabled="running"
+                            class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm">
+                        <i class="fas fa-paper-plane mr-2"></i>Send This Email
+                    </button>
+                    <button @click="copyPreview(previews[activePreview])"
+                            class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 text-sm">
+                        <i class="fas fa-copy mr-2"></i>Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- ── Campaign Log ───────────────────────────────────────────────── -->
+    <div x-show="logs.length > 0" class="bg-white rounded-lg p-6 card-shadow">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-list-alt mr-2 text-gray-500"></i>Campaign Log
+            </h3>
+            <button @click="logs = []" class="text-sm text-gray-500 hover:text-gray-700">
+                <i class="fas fa-trash mr-1"></i>Clear
+            </button>
+        </div>
+        <div class="space-y-1 max-h-64 overflow-y-auto font-mono text-xs">
+            <template x-for="(log, i) in logs" :key="i">
+                <div class="flex items-start gap-2 py-1 border-b border-gray-50"
+                     :class="{
+                        'text-green-700': log.type === 'success',
+                        'text-red-600': log.type === 'error',
+                        'text-yellow-600': log.type === 'warning',
+                        'text-gray-700': log.type === 'info'
+                     }">
+                    <span class="text-gray-400 flex-shrink-0" x-text="log.time"></span>
+                    <span x-text="log.message"></span>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- ── Schedule Modal ─────────────────────────────────────────────── -->
+    <div x-show="showScheduleModal" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style="background: rgba(0,0,0,0.5);"
+         @keydown.escape.window="showScheduleModal = false">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md" @click.stop>
+            <div class="p-6 border-b border-gray-100">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-900">
+                        <i class="fas fa-calendar-alt mr-2 text-blue-600"></i>Schedule Campaign
+                    </h2>
+                    <button @click="showScheduleModal = false" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="p-6 space-y-5">
+                <!-- Campaign Name -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Campaign Name</label>
+                    <input type="text" x-model="scheduleForm.name"
+                           placeholder="e.g. MERA Radio Wave #1"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <!-- Contact Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Contact Type</label>
+                    <select x-model="scheduleForm.contactType"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Contacts</option>
+                        <option value="radio">Radio Stations Only</option>
+                        <option value="playlist">Playlist Curators Only</option>
+                    </select>
+                </div>
+                <!-- Album -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Primary Album</label>
+                    <select x-model="scheduleForm.album"
+                            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                        <option value="">Use per-contact defaults</option>
+                        <template x-for="album in albums" :key="album.title">
+                            <option :value="album.title" x-text="album.title + ' (' + album.year + ')'"></option>
+                        </template>
+                    </select>
+                </div>
+                <!-- Frequency -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button @click="scheduleForm.frequency = 'once'"
+                                :class="scheduleForm.frequency === 'once' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'"
+                                class="border-2 rounded-lg py-2 text-sm font-medium text-center">
+                            Once
+                        </button>
+                        <button @click="scheduleForm.frequency = 'weekly'"
+                                :class="scheduleForm.frequency === 'weekly' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'"
+                                class="border-2 rounded-lg py-2 text-sm font-medium text-center">
+                            Weekly
+                        </button>
+                        <button @click="scheduleForm.frequency = 'monthly'"
+                                :class="scheduleForm.frequency === 'monthly' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600'"
+                                class="border-2 rounded-lg py-2 text-sm font-medium text-center">
+                            Monthly
+                        </button>
+                    </div>
+                </div>
+                <!-- Run At -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Run At</label>
+                    <input type="datetime-local" x-model="scheduleForm.runAt"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+                <!-- Limit -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Max Emails per Run</label>
+                    <input type="number" x-model.number="scheduleForm.limit" min="1" max="50"
+                           placeholder="Leave blank for all"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500">
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-100 flex gap-3 justify-end">
+                <button @click="showScheduleModal = false"
+                        class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+                    Cancel
+                </button>
+                <button @click="saveSchedule()"
+                        :disabled="savingSchedule"
+                        class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                    <i class="fas fa-calendar-check mr-2"></i>
+                    <span x-show="!savingSchedule">Schedule Campaign</span>
+                    <span x-show="savingSchedule">Saving...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Scheduled Campaigns List ──────────────────────────────────── -->
+    <div x-show="scheduledCampaigns.length > 0" class="bg-white rounded-lg p-6 card-shadow">
+        <h3 class="text-lg font-semibold text-gray-900 mb-4">
+            <i class="fas fa-clock mr-2 text-blue-500"></i>Scheduled Campaigns
+        </h3>
+        <div class="space-y-3">
+            <template x-for="sc in scheduledCampaigns" :key="sc.id">
+                <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                    <div>
+                        <p class="font-medium text-gray-900" x-text="sc.name"></p>
+                        <p class="text-xs text-gray-500 mt-0.5"
+                           x-text="sc.frequency + ' · ' + sc.contactType + ' · runs ' + sc.runAt"></p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700"
+                              x-text="sc.status || 'scheduled'"></span>
+                        <button @click="deleteSchedule(sc.id)"
+                                class="text-gray-400 hover:text-red-500 text-sm">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+</div>
+
+<!-- ── Alpine.js Component ─────────────────────────────────────────── -->
+<script>
+function meraOutreach() {
+    return {
+        // State
+        filterType: 'all',
+        selectedAlbum: 'Oscillating Overthruster',
+        selectedContacts: [],
+        previews: [],
+        activePreview: 0,
+        logs: [],
+        running: false,
+        mode: 'preview',
+        showScheduleModal: false,
+        savingSchedule: false,
+        scheduledCampaigns: [],
+        stats: { totalContacts: 0, radioStations: 0, playlistCurators: 0, emailsSent: 0 },
+
+        scheduleForm: {
+            name: 'MERA Promo Wave',
+            contactType: 'all',
+            album: '',
+            frequency: 'once',
+            runAt: '',
+            limit: null
+        },
+
+        // ── Static Data ──────────────────────────────────────────
+        albums: [
+            {
+                title: 'Oscillating Overthruster',
+                year: '2026',
+                genre: 'Nu Jazz / Experimental Electronic',
+                spotify: 'https://open.spotify.com/artist/4PBJ1WON6gmxC1L35HHh69',
+                smart_link: 'https://streamondistro.lnk.to/OscillatingOverthruster',
+                store: 'https://www.nullrecords.com/store/',
+                apple: 'https://music.apple.com/us/artist/my-evil-robot-army/1576251082'
+            },
+            {
+                title: 'Spiraling',
+                year: '2025',
+                genre: 'Nu Jazz / Ambient Electronic',
+                spotify: 'https://open.spotify.com/artist/4PBJ1WON6gmxC1L35HHh69',
+                smart_link: '',
+                store: 'https://www.nullrecords.com/store/',
+                apple: 'https://music.apple.com/us/artist/my-evil-robot-army/1576251082'
+            },
+            {
+                title: 'Space Jazz',
+                year: '2024',
+                genre: 'Nu Jazz / Lofi Jazz',
+                spotify: 'https://open.spotify.com/artist/4PBJ1WON6gmxC1L35HHh69',
+                smart_link: '',
+                store: 'https://www.nullrecords.com/store/',
+                apple: 'https://music.apple.com/us/artist/my-evil-robot-army/1576251082'
+            }
+        ],
+
+        contacts: [],
+
+        // ── Computed ─────────────────────────────────────────────
+        get filteredContacts() {
+            if (this.filterType === 'all') return this.contacts;
+            return this.contacts.filter(c => c.type === this.filterType);
+        },
+
+        // ── Init ─────────────────────────────────────────────────
+        async init() {
+            await this.loadContacts();
+            await this.loadStats();
+            await this.loadScheduledCampaigns();
+        },
+
+        async loadContacts() {
+            try {
+                const r = await fetch('/api/music-outreach/contacts');
+                const data = await r.json();
+                if (data.success) {
+                    this.contacts = data.contacts;
+                    this.selectedContacts = data.contacts.map(c => c.email); // select all by default
+                }
+            } catch (e) {
+                this.addLog('Failed to load contacts: ' + e.message, 'error');
+            }
+        },
+
+        async loadStats() {
+            try {
+                const r = await fetch('/api/music-outreach/stats');
+                const data = await r.json();
+                if (data.success) this.stats = data.stats;
+            } catch (e) { /* silent */ }
+        },
+
+        async loadScheduledCampaigns() {
+            try {
+                const r = await fetch('/api/music-outreach/schedules');
+                const data = await r.json();
+                if (data.success) this.scheduledCampaigns = data.schedules;
+            } catch (e) { /* silent */ }
+        },
+
+        // ── Contact Selection ─────────────────────────────────────
+        toggleContact(email) {
+            const idx = this.selectedContacts.indexOf(email);
+            if (idx === -1) this.selectedContacts.push(email);
+            else this.selectedContacts.splice(idx, 1);
+        },
+
+        toggleSelectAll() {
+            if (this.selectedContacts.length >= this.filteredContacts.length) {
+                this.selectedContacts = [];
+            } else {
+                this.selectedContacts = this.filteredContacts.map(c => c.email);
+            }
+        },
+
+        // ── Preview ──────────────────────────────────────────────
+        async runPreview() {
+            if (this.selectedContacts.length === 0) {
+                alert('Select at least one contact to preview');
+                return;
+            }
+            this.running = true;
+            this.mode = 'preview';
+            this.previews = [];
+            this.addLog('Generating email previews...', 'info');
+            try {
+                const r = await fetch('/api/music-outreach/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contacts: this.selectedContacts,
+                        album_override: this.selectedAlbum || null
+                    })
+                });
+                const data = await r.json();
+                if (data.success) {
+                    this.previews = data.previews;
+                    this.activePreview = 0;
+                    // Mark contacts as previewed
+                    this.selectedContacts.forEach(email => {
+                        const c = this.contacts.find(x => x.email === email);
+                        if (c) c.status = 'previewed';
+                    });
+                    this.addLog(`Generated ${data.previews.length} email previews`, 'success');
+                } else {
+                    this.addLog('Preview failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (e) {
+                this.addLog('Preview error: ' + e.message, 'error');
+            } finally {
+                this.running = false;
+            }
+        },
+
+        async previewContact(contact) {
+            this.running = true;
+            this.mode = 'preview';
+            try {
+                const r = await fetch('/api/music-outreach/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contacts: [contact.email],
+                        album_override: this.selectedAlbum || null
+                    })
+                });
+                const data = await r.json();
+                if (data.success && data.previews.length > 0) {
+                    // Insert or replace in previews
+                    const existing = this.previews.findIndex(p => p.email === contact.email);
+                    if (existing >= 0) {
+                        this.previews[existing] = data.previews[0];
+                        this.activePreview = existing;
+                    } else {
+                        this.previews.push(data.previews[0]);
+                        this.activePreview = this.previews.length - 1;
+                    }
+                }
+            } catch (e) {
+                this.addLog('Preview error: ' + e.message, 'error');
+            } finally {
+                this.running = false;
+            }
+        },
+
+        // ── Send ─────────────────────────────────────────────────
+        async runSend() {
+            if (this.selectedContacts.length === 0) {
+                alert('Select at least one contact to send to');
+                return;
+            }
+            if (!confirm(`Send emails to ${this.selectedContacts.length} contacts? This cannot be undone.`)) return;
+
+            this.running = true;
+            this.mode = 'send';
+            this.addLog(`Starting send to ${this.selectedContacts.length} contacts...`, 'info');
+            try {
+                const r = await fetch('/api/music-outreach/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contacts: this.selectedContacts,
+                        album_override: this.selectedAlbum || null
+                    })
+                });
+                const data = await r.json();
+                if (data.success) {
+                    this.addLog(`✅ Sent ${data.sent} emails. ${data.failed} failed.`, 'success');
+                    // Update contact statuses
+                    (data.results || []).forEach(res => {
+                        const c = this.contacts.find(x => x.email === res.email);
+                        if (c) c.status = res.status;
+                    });
+                    this.stats.emailsSent = (this.stats.emailsSent || 0) + (data.sent || 0);
+                } else {
+                    this.addLog('Send failed: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (e) {
+                this.addLog('Send error: ' + e.message, 'error');
+            } finally {
+                this.running = false;
+            }
+        },
+
+        async sendSingle(preview) {
+            if (!confirm(`Send to ${preview.email}?`)) return;
+            this.running = true;
+            this.mode = 'send';
+            try {
+                const r = await fetch('/api/music-outreach/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contacts: [preview.email],
+                        album_override: null
+                    })
+                });
+                const data = await r.json();
+                if (data.success) {
+                    this.addLog(`✅ Sent to ${preview.email}`, 'success');
+                    const c = this.contacts.find(x => x.email === preview.email);
+                    if (c) c.status = 'sent';
+                } else {
+                    this.addLog('Failed: ' + (data.error || 'Unknown'), 'error');
+                }
+            } catch (e) {
+                this.addLog('Error: ' + e.message, 'error');
+            } finally {
+                this.running = false;
+            }
+        },
+
+        // ── Schedule ─────────────────────────────────────────────
+        openScheduleModal() {
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 30);
+            this.scheduleForm.runAt = now.toISOString().slice(0,16);
+            this.showScheduleModal = true;
+        },
+
+        async saveSchedule() {
+            if (!this.scheduleForm.runAt) {
+                alert('Please set a run time');
+                return;
+            }
+            this.savingSchedule = true;
+            try {
+                const r = await fetch('/api/music-outreach/schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(this.scheduleForm)
+                });
+                const data = await r.json();
+                if (data.success) {
+                    this.addLog(`📅 Campaign "${this.scheduleForm.name}" scheduled for ${this.scheduleForm.runAt}`, 'success');
+                    this.scheduledCampaigns.push({
+                        id: data.id,
+                        name: this.scheduleForm.name,
+                        contactType: this.scheduleForm.contactType,
+                        frequency: this.scheduleForm.frequency,
+                        runAt: this.scheduleForm.runAt,
+                        status: 'scheduled'
+                    });
+                    this.showScheduleModal = false;
+                } else {
+                    this.addLog('Schedule failed: ' + (data.error || 'Unknown'), 'error');
+                }
+            } catch (e) {
+                this.addLog('Schedule error: ' + e.message, 'error');
+            } finally {
+                this.savingSchedule = false;
+            }
+        },
+
+        async deleteSchedule(id) {
+            if (!confirm('Delete this scheduled campaign?')) return;
+            try {
+                await fetch(`/api/music-outreach/schedule/${id}`, { method: 'DELETE' });
+                this.scheduledCampaigns = this.scheduledCampaigns.filter(s => s.id !== id);
+                this.addLog('Scheduled campaign deleted', 'info');
+            } catch (e) {
+                this.addLog('Delete error: ' + e.message, 'error');
+            }
+        },
+
+        // ── Utilities ────────────────────────────────────────────
+        copyPreview(preview) {
+            const text = `Subject: ${preview.subject}\n\n${preview.body}`;
+            navigator.clipboard.writeText(text).then(() => {
+                this.addLog('Copied to clipboard', 'info');
+            });
+        },
+
+        addLog(message, type = 'info') {
+            const now = new Date();
+            const time = now.toTimeString().slice(0,8);
+            this.logs.unshift({ time, message, type });
+            if (this.logs.length > 100) this.logs.pop();
+        }
+    };
+}
+</script>
+{% endblock %}

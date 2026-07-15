@@ -2,7 +2,7 @@
 Admin API endpoints for managing brands, users, and their configurations
 """
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from functools import wraps
 from datetime import datetime
@@ -87,8 +87,6 @@ def admin_required(fn):
     """Decorator that requires the current user to be an admin."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        if not hasattr(current_app, 'login_manager'):
-            return fn(*args, **kwargs)
         if not getattr(current_user, 'is_authenticated', False):
             return jsonify({'success': False, 'error': 'Authentication required'}), 401
         if not getattr(current_user, 'is_admin', False):
@@ -99,9 +97,7 @@ def admin_required(fn):
 
 @admin_bp.before_request
 def require_login():
-    """Require auth only when Flask-Login is configured on the current app."""
-    if not hasattr(current_app, 'login_manager'):
-        return None
+    """Require an authenticated user for every /api/admin/* route."""
     if not getattr(current_user, 'is_authenticated', False):
         return jsonify({'success': False, 'error': 'Authentication required'}), 401
     return None

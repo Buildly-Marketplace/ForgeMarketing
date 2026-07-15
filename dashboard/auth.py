@@ -18,6 +18,13 @@ logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint('auth', __name__)
 
+
+def _safe_next_url(candidate: str) -> str:
+    """Only allow same-site, relative redirect targets to prevent open redirects."""
+    if candidate and candidate.startswith('/') and not candidate.startswith('//'):
+        return candidate
+    return url_for('index')
+
 # Shared secret for cross-app auth cookie (must match Django setting)
 _AUTH_COOKIE_SECRET = os.getenv('SHARED_AUTH_SECRET', 'forge-shared-auth-2025')
 AUTH_COOKIE_NAME = 'forge_auth'
@@ -40,11 +47,13 @@ def _sign_auth_cookie(email: str, display_name: str) -> str:
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
+    next_url = _safe_next_url(request.args.get('next') or request.form.get('next') or '')
+
     if current_user.is_authenticated:
-        return redirect(url_for('index'))
+        return redirect(next_url)
 
     if request.method == 'GET':
-        return render_template('login.html')
+        return render_template('login.html', next=next_url)
 
     # POST — either JSON or form
     if request.is_json:
@@ -94,9 +103,9 @@ def login():
     auth_token = _sign_auth_cookie(user.email, user.display_name or user.email)
 
     if request.is_json:
-        resp = make_response(jsonify({'success': True, 'redirect': url_for('index')}))
+        resp = make_response(jsonify({'success': True, 'redirect': next_url}))
     else:
-        resp = make_response(redirect(url_for('index')))
+        resp = make_response(redirect(next_url))
 
     resp.set_cookie(
         AUTH_COOKIE_NAME, auth_token,

@@ -948,7 +948,14 @@ def run_source_research_job(lead_source, payload=None):
     job.completed_at = datetime.utcnow()
     job.results_count = len(normalized_items)
     job.candidates_created = created
-    job.run_log = f"Processed {len(normalized_items)} item(s). Created {created} candidate(s)."
+    # Surface a non-fatal adapter warning (e.g. a public API that was
+    # unreachable or rate-limited) without failing the run.
+    adapter_warning = getattr(adapter, "last_warning", "") or ""
+    if adapter_warning:
+        job.error_message = adapter_warning
+        job.run_log = f"Processed {len(normalized_items)} item(s). Created {created} candidate(s). Note: {adapter_warning}"
+    else:
+        job.run_log = f"Processed {len(normalized_items)} item(s). Created {created} candidate(s)."
 
     update_source_performance(lead_source.id, lead_source.brand_name, lead_source.region_id)
 

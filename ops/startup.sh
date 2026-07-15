@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 # Configuration
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="${PROJECT_ROOT}/.venv"
-PORT=8002
+PORT=8003
 SKIP_VENV=false
 CLEAN_MODE=false
 PID_FILE="${PROJECT_ROOT}/ops/.server.pid"

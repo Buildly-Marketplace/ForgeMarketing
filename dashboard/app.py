@@ -34,24 +34,6 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 # Import our automation modules
-
-from flask import Flask, render_template, request, jsonify, redirect, url_for
-import asyncio
-import json
-import yaml
-import os
-import requests
-import subprocess
-from pathlib import Path
-from datetime import datetime
-from typing import Dict, Any, List, Optional
-import sys
-
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-# Import our automation modules
 try:
     from automation.ai.ollama_integration import AIContentGenerator
     print("✅ AI integration loaded successfully")
@@ -161,7 +143,7 @@ except ImportError as e:
     GOOGLE_ADS_AVAILABLE = False
 
 app = Flask(__name__)
-app.secret_key = os.getenv('DASHBOARD_SECRET_KEY', 'marketing-automation-dashboard-2025')
+app.secret_key = os.getenv('DASHBOARD_SECRET_KEY') or os.getenv('FLASK_SECRET_KEY', 'marketing-automation-dashboard-2025')
 
 # Honor X-Forwarded-Prefix header set by nginx when the app runs behind /marketing/ prefix.
 # This lets url_for() generate correct absolute URLs including the /marketing/ path segment.
@@ -223,7 +205,7 @@ else:
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
-from dashboard.models import db
+from dashboard.models import db, User
 db.init_app(app)
 
 # Initialize Flask-Migrate if available (for CLI commands like `flask db upgrade`).
@@ -241,10 +223,24 @@ except ImportError:
         stacklevel=2,
     )
 
+# Flask-Login (shared session/cookie contract with gateway_app.py, so a
+# login on the gateway is also valid here when both processes share the
+# same secret_key and database).
+from flask_login import LoginManager
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'auth.login'
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
 # Initialize admin API blueprint
 from dashboard.admin_api import admin_bp
 from dashboard.marketing_calendar_api import marketing_calendar_bp
 from dashboard.lead_radar_api import lead_api_bp
+from dashboard.auth import auth_bp
 
 # Import Lead Radar models so SQLAlchemy metadata includes these tables.
 from dashboard import lead_radar_models  # noqa: F401
@@ -252,6 +248,7 @@ from dashboard import lead_radar_models  # noqa: F401
 app.register_blueprint(admin_bp)
 app.register_blueprint(marketing_calendar_bp)
 app.register_blueprint(lead_api_bp)
+app.register_blueprint(auth_bp)
 
 # Load The Index custom module locally. Keep this isolated and optional.
 THE_INDEX_MODULE_ENABLED = os.getenv('ENABLE_THE_INDEX_MODULE', 'true').lower() in {'1', 'true', 'yes'}
@@ -6395,6 +6392,527 @@ def internal_server_error(e):
         return jsonify({'error': 'Internal server error'}), 500
     return render_template('404.html', login_url='/login', marketing_url='/', is_500=True), 500
 
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MERA Music Outreach Routes
+# Append this block to the end of dashboard/app.py (before `if __name__ == '__main__':`)
+# ─────────────────────────────────────────────────────────────────────────────
+
+import uuid as _uuid
+import sqlite3 as _sqlite3
+
+# ── Contact data (hardcoded from MERA_Promotion_Contacts.xlsx) ────────────────
+MERA_CONTACTS = [
+    # ── USA ──────────────────────────────────────────────────────────────────
+    {"id": 1,  "name": "Coffee Talk Jazz Radio",     "email": "CoffeeTalkJazzRadio@msn.com",        "type": "radio",    "region": "USA",           "genre": "Jazz",                   "notes": "Indie jazz radio — accepts new artists"},
+    {"id": 2,  "name": "SmoothJazz.com",              "email": "smoothairplay@gmail.com",              "type": "radio",    "region": "USA",           "genre": "Smooth Jazz",            "notes": "Major online smooth jazz station; alt contact rowan@smoothjazz.com"},
+    {"id": 3,  "name": "Jazz Moods Radio",            "email": "musicsubmissions@jazzmoodsradio.com",  "type": "radio",    "region": "USA",           "genre": "Jazz",                   "notes": "Dedicated jazz submission line"},
+    {"id": 4,  "name": "YourJazzRadio",               "email": "artist@yourjazzradio.com",             "type": "radio",    "region": "USA",           "genre": "Jazz",                   "notes": "Artist-focused; accepts international submissions"},
+    {"id": 5,  "name": "WBGO",                        "email": "content@wbgo.org",                     "type": "radio",    "region": "USA",           "genre": "Jazz/Public Radio",      "notes": "Premier US jazz public radio, Newark NJ"},
+    {"id": 6,  "name": "Jazz 88.5 / KSBR",           "email": "ksbr885+music@gmail.com",              "type": "radio",    "region": "USA",           "genre": "Jazz",                   "notes": "Southern CA college jazz station"},
+    {"id": 7,  "name": "WEFT Jazz",                   "email": "jazz@weft.org",                        "type": "radio",    "region": "USA",           "genre": "Jazz",                   "notes": "Community radio jazz programming, Champaign IL"},
+    {"id": 8,  "name": "WEFT Experimental",          "email": "experimental@weft.org",                "type": "radio",    "region": "USA",           "genre": "Experimental",           "notes": "WEFT experimental slot — good fit for nu-jazz"},
+    {"id": 9,  "name": "SMN Radio",                   "email": "whosnext@smnradio.net",                "type": "radio",    "region": "USA",           "genre": "Jazz/Urban",             "notes": "Smooth Music Network"},
+    {"id": 10, "name": "KUTX",                        "email": "music@kutx.org",                       "type": "radio",    "region": "USA",           "genre": "Indie/Jazz",             "notes": "Austin NPR music station"},
+    {"id": 11, "name": "WWPV Jazz",                   "email": "wwpvjazz@hotmail.com",                 "type": "radio",    "region": "USA",           "genre": "Jazz",                   "notes": "Vermont college jazz show"},
+    {"id": 12, "name": "WRIU Jazz",                   "email": "jazzsubmissions@wriu.org",             "type": "radio",    "region": "USA",           "genre": "Jazz",                   "notes": "URI college radio jazz dept, Kingston RI"},
+    {"id": 13, "name": "Jammin Jazz Radio",           "email": "submit@jamminjazz.com",                "type": "radio",    "region": "USA",           "genre": "Jazz",                   "notes": "Airplay consideration — send streaming link or request Dropbox access"},
+    {"id": 14, "name": "Smooth Jazz Club",            "email": "info@smoothjazz.club",                 "type": "radio",    "region": "USA",           "genre": "Smooth/Nu-Jazz",         "notes": "Accepts smooth, contemporary & nu-jazz; independent artists welcome"},
+    # ── UK ───────────────────────────────────────────────────────────────────
+    {"id": 15, "name": "Jazz FM (UK)",                "email": "christian.bragg@bauermedia.co.uk",     "type": "radio",    "region": "UK",            "genre": "Jazz",                   "notes": "Major UK jazz FM station (Bauer Media); accepts electronic submissions"},
+    {"id": 16, "name": "Jazz London Radio",           "email": "info@jazzlondonradio.com",             "type": "radio",    "region": "UK",            "genre": "Jazz",                   "notes": "London-based online jazz station"},
+    {"id": 17, "name": "247 Jazz Radio",              "email": "info@247onlineradio.com",              "type": "radio",    "region": "UK",            "genre": "Jazz",                   "notes": "24/7 online jazz station, UK-based"},
+    {"id": 18, "name": "Chaos in the Cosmos",        "email": "info@chaosinthecosmos.co.uk",          "type": "radio",    "region": "UK",            "genre": "Psychedelic Jazz/Funk",  "notes": "Scottish radio show + label; covers psych-jazz & experimental — great fit"},
+    {"id": 19, "name": "Classic Jazz FM",             "email": "info@classicjazz.fm",                  "type": "radio",    "region": "UK",            "genre": "Classic Jazz",           "notes": "European jazz FM station"},
+    # ── Europe ───────────────────────────────────────────────────────────────
+    {"id": 20, "name": "Radio Swiss Jazz",            "email": "info@radioswissjazz.ch",               "type": "radio",    "region": "Switzerland",   "genre": "Jazz",                   "notes": "Swiss national jazz radio; send streaming link (SoundCloud/Dropbox/GDrive)"},
+    {"id": 21, "name": "Jazz Radio France",           "email": "programmation@jazzradio.fr",           "type": "radio",    "region": "France",        "genre": "Jazz",                   "notes": "Major French jazz network; alt: use contact form on jazzradio.fr"},
+    {"id": 22, "name": "Qfm 94.3 (Spain)",           "email": "contact@qmusica.com",                  "type": "radio",    "region": "Spain",         "genre": "Nu-Jazz/Soul/Funk",      "notes": "Only full-time jazz FM in Spain; explicitly covers Nu-Jazz. Send WeTransfer link via contact form."},
+    {"id": 23, "name": "SwissGroove Web Radio",      "email": "info@swissgroove.ch",                   "type": "radio",    "region": "Switzerland",   "genre": "Jazz/Groove",            "notes": "Swiss groove/jazz web radio"},
+    {"id": 24, "name": "Radio Regentrude",            "email": "info@radio-regentrude.de",             "type": "radio",    "region": "Germany",       "genre": "Experimental/Jazz",      "notes": "German indie station; MP3/WAV + one-sheet + bio required"},
+    # ── Australia ────────────────────────────────────────────────────────────
+    {"id": 25, "name": "Triple R 102.7FM (Melbourne)","email": "music@rrr.org.au",                     "type": "radio",    "region": "Australia",     "genre": "Jazz/Experimental",      "notes": "Melbourne community radio; indie-friendly; streaming link + 320kbps download"},
+    {"id": 26, "name": "Radio Adelaide",              "email": "music@radioadelaide.org.au",           "type": "radio",    "region": "Australia",     "genre": "All genres",             "notes": "Adelaide community radio; 100+ programs, send streaming + hi-res MP3"},
+    {"id": 27, "name": "4ZZZ Brisbane 102.1FM",      "email": "music@4zzz.org.au",                     "type": "radio",    "region": "Australia",     "genre": "Jazz/Experimental",      "notes": "Brisbane community radio; use online submission form at jeff.4zzz.org.au"},
+    # ── Canada ───────────────────────────────────────────────────────────────
+    {"id": 28, "name": "CHLY 101.7FM (Nanaimo BC)",  "email": "music@chly.ca",                        "type": "radio",    "region": "Canada",        "genre": "Jazz/Experimental",      "notes": "BC community radio; loves Bandcamp download codes; album/EP only"},
+    {"id": 29, "name": "CJSR (Edmonton)",             "email": "music@cjsr.com",                       "type": "radio",    "region": "Canada",        "genre": "Jazz/Experimental",      "notes": "University of Alberta radio; digital album/EP via Bandcamp/Dropbox/GDrive"},
+    {"id": 30, "name": "CFUV 101.9FM (Victoria BC)", "email": "music@cfuv.ca",                        "type": "radio",    "region": "Canada",        "genre": "Jazz/Experimental",      "notes": "UVic campus radio; streaming link required; accepts international artists"},
+    # ── Press / Blogs ─────────────────────────────────────────────────────────
+    {"id": 31, "name": "Jazz in Europe",              "email": "submissions@jazzineurope.com",         "type": "press",    "region": "Netherlands",   "genre": "Jazz",                   "notes": "Major European jazz media; reviews, interviews & playlists. English-language. Include press release."},
+    {"id": 32, "name": "All About Jazz",              "email": "press@allaboutjazz.com",               "type": "press",    "region": "USA",           "genre": "Jazz",                   "notes": "Largest English-language jazz publication; submit via coverage request system at allaboutjazz.com"},
+    {"id": 33, "name": "Jazzfuel",                    "email": "hello@jazzfuel.com",                   "type": "press",    "region": "International", "genre": "Jazz",                   "notes": "Jazz marketing & editorial; covers nu-jazz & experimental"},
+    # ── Playlist Curators ────────────────────────────────────────────────────
+    {"id": 34, "name": "Lopills",                     "email": "contact@lopills.com",                  "type": "playlist", "region": "International", "genre": "Lo-Fi/Ambient",          "notes": "Lo-fi playlist curator — Spotify/Apple Music"},
+    {"id": 35, "name": "Lo-Fi House Collective",     "email": "kiffenbeats@gmail.com",                "type": "playlist", "region": "International", "genre": "Lo-Fi/Jazz",             "notes": "Lo-fi house beats and jazz curation"},
+    {"id": 36, "name": "Indiemono",                  "email": "carlos@indiemono.com",                  "type": "playlist", "region": "Spain",         "genre": "Indie/Ambient/Electronic","notes": "Independent Spotify playlist curator; strong international presence"},
+    {"id": 37, "name": "The JazzHop Cafe",           "email": "submit@one-submit.com",                 "type": "playlist", "region": "International", "genre": "Lo-Fi/Jazz",             "notes": "Major lo-fi jazz Spotify playlist; submit via one-submit.com (~$3/track)"},
+    {"id": 38, "name": "Soundplate Nu-Jazz 2026",    "email": "submit@soundplate.com",                 "type": "playlist", "region": "International", "genre": "Nu-Jazz/Jazztronica",    "notes": "Active Nu-Jazz & Jazztronica Spotify playlist — perfect genre match. Free submission at soundplate.com"},
+    {"id": 39, "name": "PlaylistPartner Lo-Fi",      "email": "via playlistpartner.com",               "type": "playlist", "region": "International", "genre": "Lo-Fi/Ambient",          "notes": "Free lo-fi & chill Spotify playlist submission — no signup required"},
+    # ── Platforms (indirect) ─────────────────────────────────────────────────
+    {"id": 40, "name": "SubmitHub (Nu-Jazz/Electronic)", "email": "via submithub.com",                "type": "platform", "region": "International", "genre": "Nu-Jazz/Electronic",     "notes": "Access 100s of bloggers & curators; ~$1/submission with guaranteed response"},
+    # Curators — added in expanded list below (see MERA_CURATORS)
+    {"id": 42, "name": "Spotify for Artists Editorial", "email": "via artists.spotify.com",           "type": "streaming","region": "Global",        "genre": "All",                    "notes": "ONLY official path to Spotify editorial playlists. Submit unreleased track 7+ days before release."},
+    {"id": 43, "name": "Apple Music Editorial",      "email": "via music.apple.com/artist-hub",        "type": "streaming","region": "Global",        "genre": "All",                    "notes": "Submit via Apple Music for Artists dashboard before release date"},
+]
+
+# ── Album data ────────────────────────────────────────────────────────────────
+MERA_ALBUMS = [
+    {
+        "id": "oscillating",
+        "title": "Oscillating Overthruster",
+        "year": 2026,
+        "genre": "Nu Jazz / Experimental Electronic",
+        "smart_link": "https://streamondistro.lnk.to/OscillatingOverthruster",
+        "spotify": "https://open.spotify.com/artist/4PBJ1WON6gmxC1L35HHh69",
+        "store": "https://www.nullrecords.com/store/",
+        "color": "purple",
+    },
+    {
+        "id": "spiraling",
+        "title": "Spiraling",
+        "year": 2025,
+        "genre": "Nu Jazz / Ambient Electronic",
+        "smart_link": "https://open.spotify.com/artist/4PBJ1WON6gmxC1L35HHh69",
+        "spotify": "https://open.spotify.com/artist/4PBJ1WON6gmxC1L35HHh69",
+        "store": "https://www.nullrecords.com/store/",
+        "color": "blue",
+    },
+    {
+        "id": "spacejazz",
+        "title": "Space Jazz",
+        "year": 2024,
+        "genre": "Nu Jazz / Lofi Jazz",
+        "smart_link": "https://open.spotify.com/artist/4PBJ1WON6gmxC1L35HHh69",
+        "spotify": "https://open.spotify.com/artist/4PBJ1WON6gmxC1L35HHh69",
+        "store": "https://www.nullrecords.com/store/",
+        "color": "indigo",
+    },
+]
+
+
+# ── Targeted Curators (nu-jazz / lofi / ambient electronic) ──────────────────
+MERA_CURATORS = [
+    # Spotify Playlist Curators
+    {"id": 1,  "platform": "Spotify", "name": "The Jazz Hop Café",          "email": "contact@jazzhopcafe.com",        "genre": "Jazz-hop / Lo-Fi / Nu-Jazz",     "audience": "2M+ Spotify", "method": "Private SoundCloud EP (3+ tracks) via thejazzhopcafe.com/submissions",       "notes": "Top-tier curator + label. Currently open for EPs. No multi-label submissions."},
+    {"id": 2,  "platform": "Spotify", "name": "Lopills",                     "email": "contact@lopills.com",            "genre": "Lo-Fi / Ambient / Chill",        "audience": "Large indie", "method": "Email direct",                                                               "notes": "Responsive independent curator. Instagram @lopills_"},
+    {"id": 3,  "platform": "Spotify", "name": "Lo-Fi House Collective",      "email": "kiffenbeats@gmail.com",          "genre": "Lo-Fi House / Jazz / Chill",     "audience": "Independent", "method": "Email direct",                                                               "notes": "Personalize the pitch — mention their specific playlist"},
+    {"id": 4,  "platform": "Spotify", "name": "Lofi Loft",                   "email": "soundcloud DM",                  "genre": "Lo-Fi / Nu-Jazz / Chillstep",    "audience": "Active indie","method": "SoundCloud DM only — lofi hiphop, nu-jazz, chillstep only",                 "notes": "Very genre-specific. Match vibe exactly before pitching."},
+    {"id": 5,  "platform": "Spotify", "name": "Marsebeatz Lofi",             "email": "marsebeatz34@gmail.com",         "genre": "Lo-Fi / Beats",                  "audience": "Independent", "method": "Email direct",                                                               "notes": "Active free-submission indie curator"},
+    {"id": 6,  "platform": "Spotify", "name": "Indiemono",                   "email": "carlos@indiemono.com",           "genre": "Indie / Ambient / Electronic",   "audience": "Sony-backed", "method": "Email — personalized pitch required",                                        "notes": "Strong international Spotify presence; ambient fits well"},
+    {"id": 7,  "platform": "Spotify", "name": "Soundplate Nu-Jazz 2026",     "email": "via soundplate.com/submit",      "genre": "Nu-Jazz / Jazztronica",          "audience": "Active 2026", "method": "Free submission at soundplate.com — search Nu-Jazz Jazztronica 2026",        "notes": "Perfect genre match. Free and currently active."},
+    {"id": 8,  "platform": "Spotify", "name": "PlaylistPartner Lo-Fi",       "email": "via playlistpartner.com",        "genre": "Lo-Fi / Chill / Study",          "audience": "706+ curators","method": "Free submission at playlistpartner.com/genre/lo-fi-chill",                 "notes": "Aggregates indie curators — no fees"},
+    {"id": 9,  "platform": "Spotify", "name": "lofirestricted",              "email": "lofirestricted@gmail.com",       "genre": "Lo-Fi / Study / Chill",          "audience": "Active indie", "method": "Email direct",                                                              "notes": "Email found in their Spotify playlist description"},
+    # YouTube Channel Curators
+    {"id": 10, "platform": "YouTube", "name": "The Jazz Hop Café (YouTube)", "email": "contact@jazzhopcafe.com",        "genre": "Jazz-hop / Lo-Fi / Nu-Jazz",     "audience": "1M+ YouTube", "method": "Same as Spotify — private SoundCloud EP via thejazzhopcafe.com/submissions",  "notes": "YouTube + Spotify combo placement opportunity"},
+    {"id": 11, "platform": "YouTube", "name": "Yaruki Music",                "email": "yarukimusic@gmail.com",          "genre": "Space Jazz / Lo-Fi / Nu-Jazz",   "audience": "Active channel","method": "Email or Discord discord.gg/99GB7JT — also wixsite.com/yaruki form",         "notes": "Uploaded Space Jazz Lofi content — strong genre match for MERA"},
+    {"id": 12, "platform": "YouTube", "name": "The Café Jazz (Nu-Jazz 24/7)","email": "thecafejazzmusic@gmail.com",     "genre": "Nu-Jazz / Lounge / Café Jazz",   "audience": "24/7 livestream","method": "Email direct",                                                            "notes": "Runs 24/7 Nu-Jazz YouTube livestream — natural MERA fit"},
+    {"id": 13, "platform": "YouTube", "name": "Shine Music LLC",             "email": "contact@shinemusicllc.com",      "genre": "Lo-Fi / Jazz / Study",           "audience": "Active channel","method": "Email direct",                                                              "notes": "Permission-based lofi/jazz YouTube curator"},
+    {"id": 14, "platform": "YouTube", "name": "Hitkend",                     "email": "contact@hitkend.com",            "genre": "Lo-Fi / Jazz / Ambient",         "audience": "Large following","method": "Music form: forms.gle/WBQgqr4oHfeZy1Qv8 — also offers distribution",        "notes": "Good for cross-promotion + potential distribution partnership"},
+    {"id": 15, "platform": "YouTube", "name": "Slayer Music",                "email": "submit@slayer.yt",               "genre": "Nu-Jazz / Bass-forward",         "audience": "Active channel","method": "Email direct: submit@slayer.yt — business: george@slayer.yt",               "notes": "Explicit submit email; runs nu-jazz and bass-boosted content"},
+    {"id": 16, "platform": "YouTube", "name": "Chilli LoFi",                 "email": "contact@chilli-lofi.com",        "genre": "Lo-Fi / Jazz / Study",           "audience": "Active YT+Spotify","method": "Email or Instagram @chilli-lofi",                                       "notes": "Runs YouTube channel + Spotify playlists"},
+    {"id": 17, "platform": "YouTube", "name": "Saxy LoFi Jazz",              "email": "via YouTube @SaxyLoFiJazz",      "genre": "Lo-Fi Jazz / Saxophone",         "audience": "Growing 2026", "method": "YouTube comment or channel DM",                                             "notes": "New 2026 channel — early contact opportunity"},
+    # Labels
+    {"id": 18, "platform": "Label",   "name": "The Jazz Hop Café (Label)",   "email": "contact@jazzhopcafe.com",        "genre": "Jazz-hop / Lo-Fi",               "audience": "Major lofi label","method": "EP via private SoundCloud — thejazzhopcafe.com/submissions",               "notes": "Also a release label. Open for EPs. High value target."},
+    {"id": 19, "platform": "Label",   "name": "Chillhop Music",              "email": "demos@chillhop.com",             "genre": "Chill Jazz-hop / Lo-Fi",         "audience": "Top lofi label", "method": "Not currently open — watch chillhop.com and their Discord",                 "notes": "Biggest lofi label globally. Keep tabs on submission windows."},
+    {"id": 20, "platform": "Label",   "name": "Grizzly Beatz",               "email": "via grizzlybeatz.com/submit",    "genre": "Lo-Fi / Chillhop / Instrumental","audience": "Active indie",  "method": "Form at grizzlybeatz.com — unreleased, no vocals, GDrive, -12 to -14 LUFS",  "notes": "Actively releasing. Strict technical requirements."},
+    {"id": 21, "platform": "Label",   "name": "Elizabeth LoFi Records",      "email": "via elizabethrecords.net",       "genre": "Lo-Fi / Chill",                  "audience": "Growing indie",  "method": "Submission form at elizabethrecords.net",                                   "notes": "New indie lofi label actively looking for artists (2025-2026)"},
+    # Blogs / Press
+    {"id": 22, "platform": "Blog",    "name": "Bong Mines Entertainment",    "email": "bongmines@bongminesentertainment.com","genre": "Electronic / Indie",        "audience": "Established US blog","method": "Official form: bongminesentertainment.com/submit-music/ — no direct email",  "notes": "Covers electronic and indie broadly. Personalized pitch required."},
+    {"id": 23, "platform": "Blog",    "name": "A&R Factory",                 "email": "via anrfactory.com/submit-demo/jazz-music/","genre": "Jazz (all styles)",    "audience": "UK industry blog","method": "Submission form at anrfactory.com/submit-demo/jazz-music/",                 "notes": "Looks for next big name in jazz. Good for UK press coverage."},
+    {"id": 24, "platform": "Blog",    "name": "EARMILK",                     "email": "via submithub.com/earmilk",      "genre": "Electronic / Indie / Nu-Jazz",   "audience": "Major publication","method": "SubmitHub ONLY — direct email not accepted",                               "notes": "Major music media. SubmitHub is the only accepted path."},
+    {"id": 25, "platform": "Blog",    "name": "Stereofox",                   "email": "ivo@stereofox.com",              "genre": "Electronic / Lo-Fi / Indie",     "audience": "Tastemaker blog", "method": "SubmitHub preferred. Personal email: ivo@stereofox.com for relationship outreach","notes": "Huge Spotify playlist pull. SubmitHub first, then personal email."},
+    {"id": 26, "platform": "Blog",    "name": "Jazz in Europe",              "email": "submissions@jazzineurope.com",   "genre": "Jazz (all styles)",              "audience": "European jazz media","method": "Email with press release + streaming link",                               "notes": "Dutch-based, English-language. Reviews + playlists + interviews."},
+    {"id": 27, "platform": "Blog",    "name": "All About Jazz",              "email": "press@allaboutjazz.com",         "genre": "Jazz (all styles)",              "audience": "Largest jazz pub","method": "Email press release or coverage request at allaboutjazz.com",               "notes": "Most important jazz press outlet globally."},
+    {"id": 28, "platform": "Blog",    "name": "Jazzfuel",                    "email": "hello@jazzfuel.com",             "genre": "Jazz / Nu-Jazz / Experimental",  "audience": "Jazz marketing",  "method": "Email direct",                                                              "notes": "Covers nu-jazz specifically. Marketing + editorial combined."},
+]
+
+# ── Email templates ────────────────────────────────────────────────────────────
+def _mera_build_email(template_key: str, contact: dict, album: dict) -> dict:
+    """Generate subject + HTML body for a given template/contact/album combo."""
+    artist = "My Evil Robot Army"
+    label  = "NullRecords"
+    from_name = "Greg @ NullRecords"
+
+    subject_map = {
+        "radio_new":       f"New Release: {artist} — \"{album['title']}\" ({album['genre']})",
+        "radio_spiraling": f"Feature Opportunity: {artist} — Nu Jazz & Ambient Sounds",
+        "radio_space_jazz":f"Submission: {artist} — \"{album['title']}\" ({album['genre']})",
+        "playlist_lofi":   f"Playlist Submission: {artist} — {album['genre']} tracks",
+    }
+    subject = subject_map.get(template_key, f"{artist} — {album['title']} Submission")
+
+    if template_key in ("radio_new", "radio_spiraling", "radio_space_jazz"):
+        body = f"""<html><body style="font-family:Arial,sans-serif;color:#222;max-width:600px;margin:0 auto">
+<p>Hi {contact['name']},</p>
+<p>I'm reaching out on behalf of <strong>{artist}</strong>, an experimental nu-jazz project on <strong>{label}</strong>. 
+We have a recent release we'd love to submit for airplay consideration on your station.</p>
+
+<table style="border-left:4px solid #7c3aed;padding:12px 16px;background:#f5f3ff;margin:16px 0;width:100%">
+  <tr><td><strong>Artist:</strong> {artist}</td></tr>
+  <tr><td><strong>Album:</strong> {album['title']} ({album['year']})</td></tr>
+  <tr><td><strong>Genre:</strong> {album['genre']}</td></tr>
+  <tr><td><strong>Label:</strong> {label}</td></tr>
+  <tr><td><strong>Listen / Smart Link:</strong> <a href="{album['smart_link']}">{album['smart_link']}</a></td></tr>
+  <tr><td><strong>Spotify:</strong> <a href="{album['spotify']}">{album['spotify']}</a></td></tr>
+  <tr><td><strong>Store:</strong> <a href="{album['store']}">{album['store']}</a></td></tr>
+</table>
+
+<p>{artist} blends cinematic jazz textures with electronic production — sitting comfortably alongside artists 
+like Nujabes, Bonobo, and Kamasi Washington. The music is instrumental and fits well in jazz, lofi, 
+and experimental programming blocks.</p>
+
+<p>We'd love for your listeners to hear it. I'm happy to send high-quality audio files, press kit, or 
+any other materials you need.</p>
+
+<p>Thank you for your time and for supporting independent jazz music.</p>
+<p>Best regards,<br><strong>{from_name}</strong><br>
+<a href="mailto:team@nullrecords.com">team@nullrecords.com</a><br>
+<a href="https://www.nullrecords.com">nullrecords.com</a></p>
+</body></html>"""
+    else:
+        # playlist template
+        body = f"""<html><body style="font-family:Arial,sans-serif;color:#222;max-width:600px;margin:0 auto">
+<p>Hi {contact['name']},</p>
+<p>I'm writing on behalf of <strong>{artist}</strong> ({label}) to submit our music for consideration 
+in your lo-fi and jazz playlists.</p>
+
+<table style="border-left:4px solid #2563eb;padding:12px 16px;background:#eff6ff;margin:16px 0;width:100%">
+  <tr><td><strong>Artist:</strong> {artist}</td></tr>
+  <tr><td><strong>Latest Album:</strong> {album['title']} ({album['year']})</td></tr>
+  <tr><td><strong>Genre:</strong> {album['genre']}</td></tr>
+  <tr><td><strong>Label:</strong> {label}</td></tr>
+  <tr><td><strong>Spotify:</strong> <a href="{album['spotify']}">{album['spotify']}</a></td></tr>
+  <tr><td><strong>Smart Link:</strong> <a href="{album['smart_link']}">{album['smart_link']}</a></td></tr>
+</table>
+
+<p>Our tracks are fully instrumental with a smooth, jazzy lo-fi feel — ideal for study, focus, 
+and chill playlists. We've released three albums in the past three years and are actively building 
+our Spotify presence.</p>
+
+<p>We'd be honored to be featured in your curation. Happy to share specific tracks, ISRC codes, 
+or Spotify for Artists stats if helpful.</p>
+
+<p>Thank you for your incredible work as a curator!</p>
+<p>Best regards,<br><strong>{from_name}</strong><br>
+<a href="mailto:team@nullrecords.com">team@nullrecords.com</a><br>
+<a href="https://www.nullrecords.com">nullrecords.com</a></p>
+</body></html>"""
+
+    return {"subject": subject, "body": body}
+
+
+# ── Schedule persistence (JSON file) ─────────────────────────────────────────
+_SCHEDULES_FILE = Path(__file__).parent.parent / "data" / "mera_schedules.json"
+
+def _load_schedules() -> list:
+    try:
+        if _SCHEDULES_FILE.exists():
+            with open(_SCHEDULES_FILE) as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return []
+
+def _save_schedules(schedules: list):
+    _SCHEDULES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(_SCHEDULES_FILE, "w") as f:
+        json.dump(schedules, f, indent=2)
+
+
+# ── NullRecords brand bootstrap ───────────────────────────────────────────────
+def _ensure_nullrecords_brand():
+    """Create the nullrecords brand config in the DB if it doesn't exist."""
+    db_path = Path(__file__).parent.parent / "data" / "marketing_dashboard.db"
+    if not db_path.exists():
+        return False
+    try:
+        conn = _sqlite3.connect(str(db_path))
+        cur = conn.cursor()
+        cur.execute("SELECT id FROM brand_configs WHERE name=?", ("nullrecords",))
+        if cur.fetchone() is None:
+            cur.execute("""
+                INSERT INTO brand_configs
+                    (name, display_name, from_email, from_name, email_service,
+                     website, industry, active, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
+            """, (
+                "nullrecords", "NullRecords / My Evil Robot Army",
+                "team@nullrecords.com", "Greg @ NullRecords",
+                "mailersend",
+                "https://www.nullrecords.com", "Music / Record Label",
+                datetime.now().isoformat()
+            ))
+            conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"⚠️  Could not bootstrap nullrecords brand: {e}")
+        return False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PAGE ROUTE
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/music-outreach')
+def music_outreach_page():
+    """Music Promo Outreach page for My Evil Robot Army / NullRecords"""
+    _ensure_nullrecords_brand()
+    return render_template('music_outreach.html', title='Music PR Outreach')
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# API ROUTES
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route('/api/music-outreach/contacts')
+def api_mera_contacts():
+    """Return all MERA promo contacts as JSON"""
+    try:
+        contact_type = request.args.get('type')  # radio | playlist | all
+        contacts = MERA_CONTACTS
+        if contact_type and contact_type != 'all':
+            contacts = [c for c in contacts if c['type'] == contact_type]
+        return jsonify({
+            'success': True,
+            'contacts': contacts,
+            'total': len(contacts),
+            'albums': MERA_ALBUMS,
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/music-outreach/preview', methods=['POST'])
+def api_mera_preview():
+    """Generate email previews for selected contacts + album + template"""
+    try:
+        data = request.get_json() or {}
+        contact_ids  = data.get('contact_ids', [c['id'] for c in MERA_CONTACTS])
+        album_id     = data.get('album_id', 'oscillating')
+        template_key = data.get('template', 'radio_new')
+
+        album = next((a for a in MERA_ALBUMS if a['id'] == album_id), MERA_ALBUMS[0])
+        contacts = [c for c in MERA_CONTACTS if c['id'] in contact_ids]
+
+        previews = []
+        for contact in contacts:
+            # Auto-select template if not overridden
+            tpl = template_key
+            if template_key == 'auto':
+                tpl = 'playlist_lofi' if contact['type'] == 'playlist' else 'radio_new'
+            email_content = _mera_build_email(tpl, contact, album)
+            previews.append({
+                'contact_id':   contact['id'],
+                'contact_name': contact['name'],
+                'contact_email':contact['email'],
+                'contact_type': contact['type'],
+                'subject':      email_content['subject'],
+                'body':         email_content['body'],
+                'template':     tpl,
+                'album':        album['title'],
+            })
+
+        return jsonify({
+            'success': True,
+            'previews': previews,
+            'total': len(previews),
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/music-outreach/send', methods=['POST'])
+def api_mera_send():
+    """Send MERA outreach emails via UnifiedEmailService"""
+    try:
+        data = request.get_json() or {}
+        contact_ids  = data.get('contact_ids', [])
+        album_id     = data.get('album_id', 'oscillating')
+        template_key = data.get('template', 'auto')
+        preview_only = data.get('preview_only', True)  # safe default
+
+        if not contact_ids:
+            return jsonify({'success': False, 'error': 'No contacts selected'}), 400
+
+        album    = next((a for a in MERA_ALBUMS if a['id'] == album_id), MERA_ALBUMS[0])
+        contacts = [c for c in MERA_CONTACTS if c['id'] in contact_ids]
+
+        # Bootstrap brand
+        _ensure_nullrecords_brand()
+
+        from unified_email_service import UnifiedEmailService
+        email_service = UnifiedEmailService()
+
+        results = []
+        for contact in contacts:
+            tpl = template_key
+            if template_key == 'auto':
+                tpl = 'playlist_lofi' if contact['type'] == 'playlist' else 'radio_new'
+            email_content = _mera_build_email(tpl, contact, album)
+
+            if preview_only:
+                results.append({
+                    'contact':  contact['name'],
+                    'email':    contact['email'],
+                    'subject':  email_content['subject'],
+                    'status':   'preview',
+                    'message':  'Preview only — not sent',
+                })
+                continue
+
+            try:
+                result = email_service.send_email(
+                    brand='nullrecords',
+                    to_email=contact['email'],
+                    subject=email_content['subject'],
+                    body=email_content['body'],
+                    is_html=True,
+                    bcc_email='team@nullrecords.com',
+                )
+                results.append({
+                    'contact':    contact['name'],
+                    'email':      contact['email'],
+                    'subject':    email_content['subject'],
+                    'status':     'sent' if result.get('success') else 'failed',
+                    'message_id': result.get('message_id', ''),
+                    'error':      result.get('error', '') if not result.get('success') else '',
+                })
+            except Exception as send_err:
+                results.append({
+                    'contact': contact['name'],
+                    'email':   contact['email'],
+                    'subject': email_content['subject'],
+                    'status':  'error',
+                    'error':   str(send_err),
+                })
+
+        sent  = sum(1 for r in results if r['status'] == 'sent')
+        failed = sum(1 for r in results if r['status'] in ('failed', 'error'))
+
+        return jsonify({
+            'success': True,
+            'preview_only': preview_only,
+            'results': results,
+            'summary': {
+                'total':   len(results),
+                'sent':    sent,
+                'failed':  failed,
+                'preview': len(results) if preview_only else 0,
+            }
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/music-outreach/schedule', methods=['POST'])
+def api_mera_schedule_create():
+    """Save a scheduled MERA outreach campaign"""
+    try:
+        data = request.get_json() or {}
+        schedule_name = data.get('name', 'MERA Outreach')
+        contact_ids   = data.get('contact_ids', [c['id'] for c in MERA_CONTACTS])
+        album_id      = data.get('album_id', 'oscillating')
+        template_key  = data.get('template', 'auto')
+        schedule_type = data.get('schedule', 'once')   # once | daily | weekly | monthly
+        send_date     = data.get('send_date', '')       # ISO date string
+        send_time     = data.get('send_time', '10:00')  # HH:MM
+
+        schedules = _load_schedules()
+        new_id = str(_uuid.uuid4())
+        entry = {
+            'id':           new_id,
+            'name':         schedule_name,
+            'contact_ids':  contact_ids,
+            'album_id':     album_id,
+            'template':     template_key,
+            'schedule':     schedule_type,
+            'send_date':    send_date,
+            'send_time':    send_time,
+            'created_at':   datetime.now().isoformat(),
+            'status':       'scheduled',
+            'contacts_count': len(contact_ids),
+        }
+        schedules.append(entry)
+        _save_schedules(schedules)
+
+        # Build a human-readable cron string for display
+        try:
+            h, m = send_time.split(':')
+        except Exception:
+            h, m = '10', '0'
+
+        cron_map = {
+            'once':    f"once at {send_date} {send_time}",
+            'daily':   f"0 {m} {h} * * *",
+            'weekly':  f"0 {m} {h} * * 1",
+            'monthly': f"0 {m} {h} 1 * *",
+        }
+        cron_entry = cron_map.get(schedule_type, f"once at {send_date} {send_time}")
+
+        return jsonify({
+            'success':    True,
+            'id':         new_id,
+            'schedule':   entry,
+            'cron_entry': cron_entry,
+            'message':    f'Campaign "{schedule_name}" scheduled ({schedule_type})',
+        }), 201
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/music-outreach/schedules')
+def api_mera_schedules_list():
+    """List all saved MERA schedules"""
+    try:
+        schedules = _load_schedules()
+        return jsonify({'success': True, 'schedules': schedules, 'total': len(schedules)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/music-outreach/schedule/<schedule_id>', methods=['DELETE'])
+def api_mera_schedule_delete(schedule_id):
+    """Delete a saved MERA schedule"""
+    try:
+        schedules = _load_schedules()
+        updated = [s for s in schedules if s['id'] != schedule_id]
+        if len(updated) == len(schedules):
+            return jsonify({'success': False, 'error': 'Schedule not found'}), 404
+        _save_schedules(updated)
+        return jsonify({'success': True, 'message': 'Schedule deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/music-outreach/stats')
+def api_mera_stats():
+    """Return quick stats for the MERA dashboard card"""
+    try:
+        schedules = _load_schedules()
+        radio_count    = sum(1 for c in MERA_CONTACTS if c['type'] == 'radio')
+        playlist_count = sum(1 for c in MERA_CONTACTS if c['type'] == 'playlist')
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total_contacts':    len(MERA_CONTACTS),
+                'radio_contacts':    radio_count,
+                'playlist_contacts': playlist_count,
+                'total_albums':      len(MERA_ALBUMS),
+                'active_schedules':  len([s for s in schedules if s['status'] == 'scheduled']),
+                'total_schedules':   len(schedules),
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ─────────────────────────────────────────────────────────────────────────────
+# END MERA MUSIC OUTREACH ROUTES
+# ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
     # Get configuration

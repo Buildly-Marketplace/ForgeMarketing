@@ -18,6 +18,23 @@ from dashboard.database import DatabaseManager  # noqa: E402
 from dashboard.lead_radar_models import RegionProfile, Lead, LeadSource, LeadCandidate, ScoringRule  # noqa: E402
 
 
+def _ensure_logged_in(client):
+    """Authenticate the test client. The Lead Radar API requires login
+    (auth hardening), so create/reuse an admin user and set the session."""
+    from dashboard.models import User
+    with app.app_context():
+        user = User.query.filter_by(email="lradar-test@example.com").first()
+        if not user:
+            user = User(email="lradar-test@example.com", display_name="LR Test", is_admin=True)
+            user.set_password("testpass123")
+            db.session.add(user)
+            db.session.commit()
+        user_id = user.id
+    with client.session_transaction() as sess:
+        sess["_user_id"] = str(user_id)
+        sess["_fresh"] = True
+
+
 def _ensure_brand(brand_name: str):
     brand = Brand.query.filter_by(name=brand_name).first()
     if brand:
@@ -59,6 +76,7 @@ def test_lead_radar_end_to_end():
         _ensure_brand(brand_name)
 
     with app.test_client() as client:
+        _ensure_logged_in(client)
         # 1) Create region
         region = _create_region(client, brand_name)
         assert region["brand_name"] == brand_name

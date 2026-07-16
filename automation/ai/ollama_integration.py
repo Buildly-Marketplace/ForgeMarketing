@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -172,6 +173,9 @@ class AIContentGenerator:
         # Default configuration
         return {
             'ollama': {
+                # generate methods read ollama.default_model; keep it here so the
+                # generator still works when config/ai_config.yaml is absent.
+                'default_model': 'llama3.2:1b',
                 'models': {
                     'content_generation': 'llama3.2:1b',
                     'social_media': 'llama3.2:1b',
@@ -185,10 +189,18 @@ class AIContentGenerator:
         }
     
     def load_brand_configs(self) -> Dict[str, Dict[str, Any]]:
-        """Load all brand configurations from individual brand directories"""
+        """Load brand configurations from individual brand directories, if any.
+
+        Filesystem configs are OPTIONAL overrides — the primary source is the
+        database (see resolve_brand_config). Historically the only source was
+        templates/brands/<name>/brand_config.yaml, but those files don't ship
+        with the app, so brands created via the admin UI/onboarding live only
+        in the DB. This still loads any YAML present so existing setups keep
+        working.
+        """
         brand_configs = {}
         brands_dir = self.templates_dir / 'brands'
-        
+
         if brands_dir.exists():
             for brand_dir in brands_dir.iterdir():
                 if brand_dir.is_dir():
@@ -200,16 +212,114 @@ class AIContentGenerator:
                                 brand_configs[brand_dir.name] = config
                         except Exception as e:
                             self.logger.warning(f"Failed to load brand config for {brand_dir.name}: {e}")
-        
+
         return brand_configs
+
+    @staticmethod
+    def _split_terms(value) -> list:
+        """Normalize a free-text or list field into a clean list of terms."""
+        if not value:
+            return []
+        if isinstance(value, list):
+            return [str(v).strip() for v in value if str(v).strip()]
+        # Split free text on commas / newlines / hashtag spaces.
+        parts = re.split(r'[,\n]+', str(value))
+        return [p.strip().lstrip('#').strip() for p in parts if p.strip()]
+
+    def _brand_config_from_db(self, brand: str):
+        """Build the brand-config dict from the database (Brand + BrandSettings).
+
+        Reads the content profile that onboarding stores in
+        BrandSettings.advanced_settings['marketing_profile']. Returns the config
+        dict in the shape the prompt-builders expect, or None if the brand isn't
+        found in the DB or the DB isn't reachable.
+        """
+        # Query the DB directly (no Flask app context required) so this works
+        # both inside the web app and from standalone automation scripts.
+        try:
+            from sqlalchemy import create_engine, text
+
+            db_url = os.getenv('DATABASE_URL')
+            if db_url:
+                if db_url.startswith('postgres://'):
+                    db_url = db_url.replace('postgres://', 'postgresql://', 1)
+                if db_url.startswith('mysql://'):
+                    db_url = db_url.replace('mysql://', 'mysql+mysqldb://', 1)
+                db_url = db_url.split('?')[0]
+            else:
+                db_path = self.config_dir.parent / 'data' / 'marketing_dashboard.db'
+                if not db_path.exists():
+                    return None
+                db_url = f'sqlite:///{db_path}'
+
+            engine = create_engine(db_url)
+            with engine.connect() as conn:
+                row = conn.execute(
+                    text("SELECT id, display_name, description FROM brands WHERE name = :n"),
+                    {"n": brand},
+                ).fetchone()
+                if not row:
+                    return None
+                brand_id, display_name, description = row[0], row[1] or brand, row[2] or ''
+                srow = conn.execute(
+                    text("SELECT advanced_settings FROM brand_settings WHERE brand_id = :bid"),
+                    {"bid": brand_id},
+                ).fetchone()
+            advanced = json.loads(srow[0]) if srow and srow[0] else {}
+            profile = (advanced or {}).get('marketing_profile') or {}
+        except Exception as e:
+            self.logger.warning(f"Could not load DB brand config for '{brand}': {e}")
+            return None
+
+        tone = self._split_terms(profile.get('brand_voice_notes')) or ['professional']
+        # Primary key message: prefer explicit product type / marketing notes / CTA.
+        primary_message = (
+            (profile.get('product_type') or '').strip()
+            or (profile.get('marketing_notes') or '').strip()
+            or (profile.get('primary_cta') or '').strip()
+            or description
+            or 'Innovation in technology'
+        )
+        audience = self._split_terms(profile.get('target_audience')) or ['developers']
+        hashtags = self._split_terms(profile.get('default_hashtags'))
+
+        return {
+            'name': display_name,  # top-level alias (some fallbacks read brand_config['name'])
+            'brand': {
+                'name': display_name,
+                'description': description,
+            },
+            'voice': {
+                'tone': tone,
+                'style': self._split_terms(profile.get('visual_style_notes')) or tone,
+            },
+            'key_messages': {
+                'primary': primary_message,
+            },
+            'target_audience': {
+                'primary': audience,
+            },
+            'social_media': {
+                'hashtags': hashtags,
+            },
+        }
+
+    def resolve_brand_config(self, brand: str) -> Dict[str, Any]:
+        """Resolve a brand's content config: filesystem YAML override first,
+        then the database. Raises ValueError only if neither has the brand."""
+        if brand in self.brand_configs:
+            return self.brand_configs[brand]
+        db_config = self._brand_config_from_db(brand)
+        if db_config is not None:
+            # Cache so repeated generations in one process don't re-query.
+            self.brand_configs[brand] = db_config
+            return db_config
+        raise ValueError(f"Unknown brand: {brand}")
     
     async def generate_blog_post(self, brand: str, topic: str, target_audience: str = None) -> Dict[str, Any]:
         """Generate AI blog post for specific brand"""
-        
-        if brand not in self.brand_configs:
-            raise ValueError(f"Unknown brand: {brand}")
-        
-        brand_config = self.brand_configs[brand]
+
+        brand_config = self.resolve_brand_config(brand)
         brand_info = brand_config.get('brand', {})
         voice_info = brand_config.get('voice', {})
         messaging = brand_config.get('key_messages', {})
@@ -261,11 +371,8 @@ Focus on providing value to {target_audience or 'developers and product managers
     
     async def generate_social_post(self, brand: str, content_type: str, platform: str = "twitter") -> Dict[str, Any]:
         """Generate social media post for specific brand and platform"""
-        
-        if brand not in self.brand_configs:
-            raise ValueError(f"Unknown brand: {brand}")
-        
-        brand_config = self.brand_configs[brand]
+
+        brand_config = self.resolve_brand_config(brand)
         brand_info = brand_config.get('brand', {})
         voice_info = brand_config.get('voice', {})
         social_media = brand_config.get('social_media', {})
@@ -331,11 +438,8 @@ Requirements:
     
     async def generate_outreach_email(self, brand: str, recipient_info: Dict[str, Any], campaign_type: str = "general") -> Dict[str, Any]:
         """Generate personalized outreach email"""
-        
-        if brand not in self.brand_configs:
-            raise ValueError(f"Unknown brand: {brand}")
-        
-        brand_config = self.brand_configs[brand]
+
+        brand_config = self.resolve_brand_config(brand)
         brand_info = brand_config.get('brand', {})
         voice_info = brand_config.get('voice', {})
         messaging = brand_config.get('key_messages', {})

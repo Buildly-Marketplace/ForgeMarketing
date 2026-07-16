@@ -167,6 +167,42 @@ class BrandOutreachRunner:
             'password': os.getenv('BREVO_SMTP_PASSWORD', '')
         }
     
+    def _load_email_template(self):
+        """Resolve this brand's outreach email template.
+
+        Order: (1) an active email OutreachTemplate in the DB for this brand,
+        (2) this brand's own built-in EMAIL_TEMPLATES entry. Never falls back
+        to a different brand's template — returns None if nothing is defined,
+        so the caller can refuse to send rather than mail another brand's copy.
+        """
+        # 1) DB OutreachTemplate (brand-scoped), matched case-insensitively.
+        try:
+            from sqlalchemy import create_engine, text
+            db_url = os.getenv('DATABASE_URL')
+            if db_url:
+                if db_url.startswith('postgres://'):
+                    db_url = db_url.replace('postgres://', 'postgresql://', 1)
+                if db_url.startswith('mysql://'):
+                    db_url = db_url.replace('mysql://', 'mysql+mysqldb://', 1)
+                db_url = db_url.split('?')[0]
+                engine = create_engine(db_url)
+                with engine.connect() as conn:
+                    row = conn.execute(
+                        text(
+                            "SELECT subject_template, body_template FROM outreach_templates "
+                            "WHERE lower(brand_name) = lower(:b) AND channel = 'email' "
+                            "AND is_active = 1 ORDER BY id LIMIT 1"
+                        ),
+                        {"b": self.brand},
+                    ).fetchone()
+                if row and (row[1] or '').strip():
+                    return {'subject': row[0] or '', 'template': row[1]}
+        except Exception as e:
+            logger.warning(f"Could not load DB outreach template for '{self.brand}': {e}")
+
+        # 2) This brand's own built-in template only (no cross-brand fallback).
+        return EMAIL_TEMPLATES.get(self.brand)
+
     def generate_personalized_message(self, target, template_data):
         """Generate personalized outreach message"""
         
@@ -226,7 +262,7 @@ class BrandOutreachRunner:
             from_email = os.getenv(f'{self.brand.upper()}_FROM_EMAIL', f'team@{self.brand}.io')
             brand_name = brand_data.get('display_name', self.brand.title()) if brand_data else self.brand.title()
             
-            msg['From'] = f\"{brand_name} <{from_email}>\"
+            msg['From'] = f"{brand_name} <{from_email}>"
             msg['To'] = to_email
             msg['Subject'] = message['subject']
             msg['Reply-To'] = from_email
@@ -307,8 +343,16 @@ class BrandOutreachRunner:
             logger.warning(f"No targets available for {brand_name} outreach")
             return {'sent': 0, 'failed': 0, 'targets': 0}
         
-        # Get email template
-        template_data = EMAIL_TEMPLATES.get(self.brand, EMAIL_TEMPLATES['buildly'])
+        # Get email template (DB OutreachTemplate first, then this brand's own
+        # built-in template; never silently fall back to another brand's copy).
+        template_data = self._load_email_template()
+        if not template_data:
+            logger.error(
+                f"No outreach email template for brand '{self.brand}'. "
+                f"Add one in the app (Outreach templates) or define it for this brand. "
+                f"Refusing to send another brand's copy."
+            )
+            return {'sent': 0, 'failed': 0, 'targets': len(targets), 'error': 'no_template'}
         
         successful_sends = 0
         failed_sends = 0

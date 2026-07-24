@@ -99,13 +99,14 @@
             <div>
                 <h3 class="text-xl font-semibold">Lead Radar Queue</h3>
                 <p class="text-sm text-gray-600">See new leads, candidate review workload, and research activity immediately after login.</p>
+                <p x-show="!leadRadarAuthenticated" class="text-sm text-amber-700 mt-2">Finish account sign-in to view or run protected Lead Radar work.</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <select x-model="leadRadarScope" @change="loadLeadRadarOverview()" class="border border-gray-300 rounded px-2 py-1 text-sm">
+                <select x-model="leadRadarScope" @change="loadLeadRadarOverview()" :disabled="!leadRadarAuthenticated" class="border border-gray-300 rounded px-2 py-1 text-sm disabled:opacity-50">
                     <option value="all">All Team Leads</option>
                     <option value="mine">My Queue Only</option>
                 </select>
-                <input x-show="leadRadarScope === 'mine'" x-model="leadRadarOwner" @change="loadLeadRadarOverview()"
+                <input x-show="leadRadarScope === 'mine'" x-model="leadRadarOwner" @change="loadLeadRadarOverview()" :disabled="!leadRadarAuthenticated"
                        class="border border-gray-300 rounded px-2 py-1 text-sm"
                        placeholder="owner/reviewer name">
             </div>
@@ -113,7 +114,8 @@
                 <a href="/lead-radar" class="bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 text-sm">Open Lead Radar</a>
                 <a href="/leads" class="bg-blue-100 text-blue-700 px-3 py-2 rounded hover:bg-blue-200 text-sm">Open Leads</a>
                 <a href="/lead-radar/candidates" class="bg-yellow-100 text-yellow-700 px-3 py-2 rounded hover:bg-yellow-200 text-sm">Review Candidates</a>
-                <button @click="runDueLeadResearch()" class="bg-emerald-600 text-white px-3 py-2 rounded hover:bg-emerald-700 text-sm">Run Due Research</button>
+                <a x-show="!leadRadarAuthenticated" href="/setup-account?next=/lead-radar" class="bg-indigo-600 text-white px-3 py-2 rounded hover:bg-indigo-700 text-sm">Sign in to Lead Radar</a>
+                <button x-show="leadRadarAuthenticated" @click="runDueLeadResearch()" class="bg-emerald-600 text-white px-3 py-2 rounded hover:bg-emerald-700 text-sm">Run Due Research</button>
             </div>
         </div>
 
@@ -300,16 +302,20 @@ function dashboard() {
         },
         leadRadarScope: 'all',
         leadRadarOwner: '',
+        leadRadarAuthenticated: Boolean(typeof CURRENT_USER !== 'undefined' && CURRENT_USER),
         
         async init() {
             if (typeof CURRENT_USER !== 'undefined' && CURRENT_USER) {
                 this.leadRadarOwner = CURRENT_USER;
             }
             await this.loadStatus();
-            await this.loadLeadRadarOverview();
+            if (this.leadRadarAuthenticated) {
+                await this.loadLeadRadarOverview();
+            }
         },
 
         async loadLeadRadarOverview() {
+            if (!this.leadRadarAuthenticated) return;
             try {
                 const active = (typeof ACTIVE_BRAND !== 'undefined' && ACTIVE_BRAND) ? ACTIVE_BRAND : '';
                 const params = new URLSearchParams();
@@ -410,7 +416,9 @@ function dashboard() {
                     }
                 }
 
-                await this.loadMarketingWorkQueue();
+                if (this.leadRadarAuthenticated) {
+                    await this.loadMarketingWorkQueue();
+                }
                 
                 // Try to load real activity data from unified analytics
                 const outreachRes = await fetch('/api/outreach/overview');
@@ -435,8 +443,6 @@ function dashboard() {
                         // Replace activity array with real data (keeping any config warnings at the end)
                         this.recentActivity = [...realActivity, ...this.recentActivity.filter(item => item.type === 'warning' || item.type === 'error')];
                         console.log('Recent activity updated:', this.recentActivity.length, 'items');
-                    } else {
-                        console.log('No recent activity data found');
                     }
                 } else {
                     // No real data available

@@ -570,9 +570,11 @@
         async init() {
           // Load status to set label
           try {
-            const r = await fetch('/marketing/api/status');
-            const j = await r.json();
-            this.statusLabel = j.services?.ai?.available ? 'AI ✓' : 'AI';
+            const r = await fetch('/api/status');
+            if (r.ok) {
+              const j = await r.json();
+              this.statusLabel = j.services?.ai?.available ? 'AI ✓' : 'AI';
+            }
           } catch(_) {}
           // Greeting
           this.pushAssistant(

@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 
 import dashboard.app as dashboard_app
 import automation.contacts_manager as cm
@@ -77,7 +78,7 @@ def test_contacts_import_csv_endpoint_roundtrip(monkeypatch, tmp_path):
     assert imp_data["imported"] == 1
 
 
-def test_influencer_discovery_endpoint_reports_empty_with_error(monkeypatch):
+def test_influencer_discovery_endpoint_queues_empty_result_with_task_history(monkeypatch):
     app = dashboard_app.app
     client = app.test_client()
 
@@ -86,16 +87,33 @@ def test_influencer_discovery_endpoint_reports_empty_with_error(monkeypatch):
     monkeypatch.setattr(dashboard_app, "ensure_brand_strategy", lambda brand: {"name": brand})
 
     class FakeDiscovery:
-        async def discover_brand_influencers(self, brand, max_per_platform):
+        async def discover_brand_influencers(self, brand, max_per_platform, progress_callback=None):
+            if progress_callback:
+                progress_callback(50, "Searching deterministic source")
             return {"bluesky": [], "youtube": []}
 
     monkeypatch.setattr(dashboard_app, "BrandInfluencerDiscovery", lambda: FakeDiscovery())
 
     res = client.post("/api/influencers/discover/buildly", json={"max_per_platform": 3})
-    assert res.status_code == 424
+    assert res.status_code == 202
     data = res.get_json()
-    assert data["success"] is False
-    assert "zero influencer candidates" in data["error"].lower()
+    assert data["success"] is True
+    task_id = data["task"]["id"]
+
+    deadline = time.monotonic() + 2
+    task = None
+    while time.monotonic() < deadline:
+        task_response = client.get(f"/api/tasks/{task_id}")
+        task = task_response.get_json()["task"]
+        if task["status"] in {"succeeded", "failed"}:
+            break
+        time.sleep(0.02)
+
+    assert task is not None
+    assert task["status"] == "succeeded"
+    assert task["result"]["summary"]["total_discovered"] == 0
+    assert "no candidates found" in task["message"].lower()
+    assert any("deterministic source" in event["message"] for event in task["events"])
 
 
 def test_api_status_contains_readiness_block(monkeypatch):

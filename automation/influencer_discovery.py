@@ -2639,8 +2639,9 @@ class BrandInfluencerDiscovery:
 
         return False
     
-    async def discover_brand_influencers(self, brand: str, max_per_platform: int = 25) -> Dict[str, List[InfluencerProfile]]:
-        """Discover influencers across all platforms for a brand"""
+    async def discover_brand_influencers(self, brand: str, max_per_platform: int = 25,
+                                         progress_callback=None) -> Dict[str, List[InfluencerProfile]]:
+        """Discover influencers across all platforms, optionally reporting observable progress."""
         results = {}
         strategy = ensure_brand_strategy(brand) or {}
         
@@ -2650,9 +2651,13 @@ class BrandInfluencerDiscovery:
         
         logger.info(f"🔍 Starting influencer discovery for {strategy['name']}")
         
-        # Search each platform
-        for platform_name, searcher in self.platforms.items():
+        # Search each platform. The callback remains optional for CLI callers.
+        platforms = list(self.platforms.items())
+        platform_count = max(len(platforms), 1)
+        for index, (platform_name, searcher) in enumerate(platforms):
             try:
+                if progress_callback:
+                    progress_callback(10 + int(index * 75 / platform_count), f'Searching {platform_name}')
                 async with searcher:
                     profiles = await searcher.search_influencers(
                         brand, 
@@ -2671,10 +2676,16 @@ class BrandInfluencerDiscovery:
                     
                     # Log discovery session
                     self._log_discovery_session(brand, platform_name, len(profiles))
+                    if progress_callback:
+                        progress_callback(10 + int((index + 1) * 75 / platform_count),
+                                          f'{platform_name}: {len(influencers)} candidate(s)')
                     
             except Exception as e:
                 logger.error(f"❌ Error searching {platform_name}: {e}")
                 results[platform_name] = []
+                if progress_callback:
+                    progress_callback(10 + int((index + 1) * 75 / platform_count),
+                                      f'{platform_name}: source unavailable ({e})')
         
         # Save all discovered influencers
         total_saved = 0
@@ -2682,6 +2693,9 @@ class BrandInfluencerDiscovery:
             for influencer in platform_influencers:
                 if self._save_influencer_profile(influencer, brand):
                     total_saved += 1
+
+        if progress_callback:
+            progress_callback(95, f'Saved {total_saved} new candidate(s)')
         
         logger.info(f"✅ Discovery complete: {total_saved} new influencers saved for {brand}")
         return results

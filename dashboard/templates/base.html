@@ -290,6 +290,25 @@
         </div>
     </footer>
 
+    <!-- Persistent task center: every background-capable UI operation reports here. -->
+    <div id="taskCenter" class="fixed bottom-5 left-5 z-50">
+        <button id="taskCenterToggle" type="button" class="relative bg-slate-900 text-white px-4 py-3 rounded-full shadow-xl hover:bg-slate-800" aria-expanded="false">
+            <i class="fas fa-list-check mr-2"></i>Task Center
+            <span id="taskCenterBadge" class="hidden absolute -top-2 -right-2 bg-amber-400 text-slate-900 text-xs font-bold rounded-full min-w-5 h-5 px-1 leading-5"></span>
+        </button>
+        <section id="taskCenterPanel" class="hidden absolute bottom-14 left-0 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden">
+            <header class="px-4 py-3 border-b flex items-center justify-between">
+                <div><h2 class="font-semibold text-slate-900">Task Center</h2><p class="text-xs text-slate-500">Live work and recent results</p></div>
+                <button id="taskCenterClose" type="button" class="text-slate-400 hover:text-slate-700" aria-label="Close"><i class="fas fa-times"></i></button>
+            </header>
+            <div id="taskCenterList" class="max-h-80 overflow-y-auto p-3 space-y-2"><p class="text-sm text-slate-500">Loading tasks…</p></div>
+            <div id="taskCenterDetail" class="hidden border-t p-3 max-h-64 overflow-y-auto"></div>
+        </section>
+    </div>
+    <div id="requestFeedback" class="hidden fixed top-4 right-4 z-50 bg-slate-900 text-white px-4 py-3 rounded-lg shadow-xl text-sm" role="status" aria-live="polite">
+        <i class="fas fa-spinner fa-spin mr-2"></i><span id="requestFeedbackText">Working…</span>
+    </div>
+
     <!-- JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <script>
@@ -313,6 +332,104 @@
                 notification.remove();
             }, 5000);
         }
+
+        // Shared task feedback contract for pages that start background work.
+        // It exposes real server events only; it never simulates progress.
+        window.ForgeTasks = (() => {
+            const panel = document.getElementById('taskCenterPanel');
+            const toggle = document.getElementById('taskCenterToggle');
+            const close = document.getElementById('taskCenterClose');
+            const badge = document.getElementById('taskCenterBadge');
+            const list = document.getElementById('taskCenterList');
+            const detail = document.getElementById('taskCenterDetail');
+            let trackedTaskIds = new Set();
+            let poller = null;
+
+            const esc = value => String(value || '').replace(/[&<>\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+            const statusClass = status => ({ queued: 'bg-amber-100 text-amber-800', running: 'bg-blue-100 text-blue-800', succeeded: 'bg-green-100 text-green-800', failed: 'bg-red-100 text-red-800' }[status] || 'bg-gray-100 text-gray-700');
+            const isActive = task => ['queued', 'running'].includes(task.status);
+            const formatTime = value => value ? new Date(value).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}) : '';
+
+            async function load() {
+                try {
+                    const response = await fetch('/api/tasks?limit=25');
+                    if (!response.ok) throw new Error('Unable to load task status');
+                    const { tasks = [] } = await response.json();
+                    const active = tasks.filter(isActive);
+                    badge.textContent = active.length;
+                    badge.classList.toggle('hidden', !active.length);
+                    list.innerHTML = tasks.length ? tasks.map(task => `
+                        <button type="button" data-task-id="${esc(task.id)}" class="task-row text-left w-full p-3 border rounded-lg hover:bg-slate-50">
+                            <div class="flex items-start justify-between gap-2"><strong class="text-sm text-slate-800">${esc(task.title)}</strong><span class="text-xs px-2 py-0.5 rounded-full ${statusClass(task.status)}">${esc(task.status)}</span></div>
+                            <p class="text-xs text-slate-600 mt-1">${esc(task.message)}</p>
+                            <div class="mt-2 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-indigo-500" style="width:${Math.max(0, Math.min(100, Number(task.progress) || 0))}%"></div></div>
+                            <p class="text-xs text-slate-400 mt-1">${Number(task.progress) || 0}% · ${formatTime(task.created_at)}</p>
+                        </button>`).join('') : '<p class="text-sm text-slate-500 p-2">No recent tasks yet.</p>';
+                    list.querySelectorAll('.task-row').forEach(row => row.addEventListener('click', () => showDetail(row.dataset.taskId)));
+                    if (active.length || !panel.classList.contains('hidden')) ensurePolling();
+                    else stopPolling();
+                } catch (error) {
+                    list.innerHTML = `<p class="text-sm text-red-600 p-2">${esc(error.message)}</p>`;
+                }
+            }
+            async function showDetail(taskId) {
+                try {
+                    const response = await fetch(`/api/tasks/${encodeURIComponent(taskId)}`);
+                    const { task } = await response.json();
+                    if (!task) return;
+                    detail.classList.remove('hidden');
+                    detail.innerHTML = `<div class="flex justify-between"><strong class="text-sm">${esc(task.title)}</strong><button type="button" id="taskDetailClose" class="text-xs text-indigo-600">Hide</button></div><div class="mt-2 space-y-2">${(task.events || []).map(event => `<div class="text-xs border-l-2 ${event.level === 'error' ? 'border-red-400' : 'border-indigo-300'} pl-2"><span class="text-slate-400">${formatTime(event.created_at)}</span> ${esc(event.message)}</div>`).join('')}</div>`;
+                    document.getElementById('taskDetailClose').addEventListener('click', () => detail.classList.add('hidden'));
+                } catch (_) { /* list remains usable if a completed task was pruned */ }
+            }
+            function open() { panel.classList.remove('hidden'); toggle.setAttribute('aria-expanded', 'true'); load(); ensurePolling(); }
+            function hide() { panel.classList.add('hidden'); toggle.setAttribute('aria-expanded', 'false'); }
+            function ensurePolling() { if (!poller) poller = window.setInterval(load, 2000); }
+            function stopPolling() { if (poller) { window.clearInterval(poller); poller = null; } }
+            toggle.addEventListener('click', () => panel.classList.contains('hidden') ? open() : hide());
+            close.addEventListener('click', hide);
+            window.setInterval(load, 15000);
+            load();
+            return {
+                open,
+                track(task) { if (task && task.id) { trackedTaskIds.add(task.id); open(); } },
+                async withBusy(button, work, busyLabel = 'Working…') {
+                    const original = button ? button.innerHTML : null;
+                    if (button) { button.disabled = true; button.innerHTML = `<i class="fas fa-spinner fa-spin mr-2"></i>${esc(busyLabel)}`; }
+                    try { return await work(); } finally { if (button) { button.disabled = false; button.innerHTML = original; } }
+                },
+            };
+        })();
+
+        // A safe default for UI actions that are still synchronous: all
+        // state-changing API calls show a truthful busy indicator until their
+        // response settles. Long-running endpoints should additionally return
+        // a Task Center task so their work remains observable after this ends.
+        (() => {
+            const nativeFetch = window.fetch.bind(window);
+            const feedback = document.getElementById('requestFeedback');
+            const feedbackText = document.getElementById('requestFeedbackText');
+            let activeRequests = 0;
+            function update(message) {
+                feedbackText.textContent = message;
+                feedback.classList.toggle('hidden', activeRequests === 0);
+            }
+            window.fetch = async function trackedFetch(input, init = {}) {
+                const method = String(init.method || (input && input.method) || 'GET').toUpperCase();
+                const isApiMutation = method !== 'GET' && method !== 'HEAD' &&
+                    String(typeof input === 'string' ? input : input?.url || '').includes('/api/');
+                if (!isApiMutation) return nativeFetch(input, init);
+                activeRequests += 1;
+                update(activeRequests > 1 ? `Working on ${activeRequests} requests…` : 'Working…');
+                try {
+                    return await nativeFetch(input, init);
+                } finally {
+                    activeRequests = Math.max(0, activeRequests - 1);
+                    update(activeRequests ? `Working on ${activeRequests} requests…` : 'Finished');
+                    if (!activeRequests) window.setTimeout(() => feedback.classList.add('hidden'), 700);
+                }
+            };
+        })();
         
         // API helper functions
         async function apiCall(endpoint, options = {}) {

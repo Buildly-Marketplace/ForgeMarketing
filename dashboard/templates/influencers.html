@@ -608,14 +608,13 @@ function influencerManager() {
                     body: JSON.stringify({})
                 });
                 
-                if (response.ok) {
+                if (response.status === 202) {
                     const result = await response.json();
-                    const influencersFound = result.summary ? result.summary.total_discovered : result.total_discovered || 0;
-                    alert(`Discovery completed for ${brand}! Found ${influencersFound} new influencers.`);
-                    this.loadInfluencers();
-                    this.loadStats();
+                    window.ForgeTasks.track(result.task);
+                    showNotification(`Discovery for ${brand} is running. Follow it in Task Center.`, 'info');
                 } else {
-                    alert('Discovery failed. Please try again.');
+                    const result = await response.json().catch(() => ({}));
+                    showNotification(result.error || 'Discovery could not be queued.', 'error');
                 }
             } catch (error) {
                 console.error('Discovery error:', error);
@@ -628,21 +627,29 @@ function influencerManager() {
         async runDiscoveryAllBrands() {
             this.discovering = true;
             try {
-                const promises = this.brands.map(brand => 
+                const responses = await Promise.all(this.brands.map(brand =>
                     fetch(this.apiUrl(`/api/influencers/discover/${brand}`), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({})
                     })
-                );
-                
-                await Promise.all(promises);
-                alert('Discovery completed for all brands!');
-                this.loadInfluencers();
-                this.loadStats();
+                ));
+                const queued = [];
+                const failed = [];
+                for (let index = 0; index < responses.length; index++) {
+                    const result = await responses[index].json().catch(() => ({}));
+                    if (responses[index].status === 202 && result.task) {
+                        queued.push(this.brands[index]);
+                        window.ForgeTasks.track(result.task);
+                    } else {
+                        failed.push(`${this.brands[index]}${result.error ? `: ${result.error}` : ''}`);
+                    }
+                }
+                if (queued.length) showNotification(`${queued.length} discovery task(s) are running. Follow them in Task Center.`, 'info');
+                if (failed.length) showNotification(`Could not queue: ${failed.join('; ')}`, 'error');
             } catch (error) {
                 console.error('Discovery error:', error);
-                alert('Discovery failed for some brands. Please try individual discovery.');
+                showNotification('Discovery could not be queued. Please try an individual brand.', 'error');
             } finally {
                 this.discovering = false;
             }

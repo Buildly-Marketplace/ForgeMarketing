@@ -555,6 +555,76 @@ class ScheduledTask(db.Model):
 
 
 # ============================================================================
+# INTERACTIVE TASK RUNS
+# ============================================================================
+
+class DashboardTask(db.Model):
+    """A user-visible foreground or background operation started by the UI."""
+    __tablename__ = 'dashboard_tasks'
+
+    id = db.Column(db.String(36), primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    task_type = db.Column(db.String(100), nullable=False, index=True)
+    brand_name = db.Column(db.String(255), nullable=True, index=True)
+    status = db.Column(db.String(20), nullable=False, default='queued', index=True)
+    progress = db.Column(db.Integer, nullable=False, default=0)
+    message = db.Column(db.Text, default='Queued')
+    result = db.Column(db.Text, default='{}')
+    error_message = db.Column(db.Text, default='')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    started_at = db.Column(db.DateTime, nullable=True)
+    finished_at = db.Column(db.DateTime, nullable=True)
+
+    events = db.relationship('DashboardTaskEvent', backref='task', lazy='dynamic', cascade='all, delete-orphan')
+
+    def get_result(self) -> Dict[str, Any]:
+        try:
+            return json.loads(self.result) if self.result else {}
+        except (json.JSONDecodeError, TypeError):
+            return {}
+
+    def to_dict(self, include_events: bool = False) -> Dict[str, Any]:
+        data = {
+            'id': self.id,
+            'title': self.title,
+            'task_type': self.task_type,
+            'brand_name': self.brand_name,
+            'status': self.status,
+            'progress': self.progress,
+            'message': self.message,
+            'result': self.get_result(),
+            'error_message': self.error_message or None,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'finished_at': self.finished_at.isoformat() if self.finished_at else None,
+        }
+        if include_events:
+            data['events'] = [event.to_dict() for event in self.events.order_by(DashboardTaskEvent.created_at.asc()).all()]
+        return data
+
+
+class DashboardTaskEvent(db.Model):
+    """An immutable progress message belonging to a DashboardTask."""
+    __tablename__ = 'dashboard_task_events'
+
+    id = db.Column(db.Integer, primary_key=True)
+    task_id = db.Column(db.String(36), db.ForeignKey('dashboard_tasks.id'), nullable=False, index=True)
+    level = db.Column(db.String(20), nullable=False, default='info')
+    message = db.Column(db.Text, nullable=False)
+    progress = db.Column(db.Integer, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'level': self.level,
+            'message': self.message,
+            'progress': self.progress,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# ============================================================================
 # PRESS RELEASE MODEL
 # ============================================================================
 

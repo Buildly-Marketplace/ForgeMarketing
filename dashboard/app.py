@@ -205,7 +205,8 @@ else:
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
-from dashboard.models import db, User
+from dashboard.models import db, User, DashboardTask
+from dashboard.task_service import start_background_task
 db.init_app(app)
 
 # Initialize Flask-Migrate if available (for CLI commands like `flask db upgrade`).
@@ -5465,6 +5466,31 @@ def serve_brand_dashboard(brand):
         return f"Error serving dashboard: {str(e)}", 500
 
 # =============================================================================
+# TASK CENTER API ENDPOINTS
+# =============================================================================
+
+@app.route('/api/tasks')
+def api_list_dashboard_tasks():
+    """Return recent user-visible work, newest first, for the global task center."""
+    limit = min(max(request.args.get('limit', 25, type=int), 1), 100)
+    active_only = request.args.get('active') in {'1', 'true', 'yes'}
+    query = DashboardTask.query
+    if active_only:
+        query = query.filter(DashboardTask.status.in_(['queued', 'running']))
+    tasks = query.order_by(DashboardTask.created_at.desc()).limit(limit).all()
+    return jsonify({'tasks': [task.to_dict() for task in tasks]})
+
+
+@app.route('/api/tasks/<task_id>')
+def api_get_dashboard_task(task_id):
+    """Return one task and its progress timeline for drill-in monitoring."""
+    task = DashboardTask.query.get(task_id)
+    if task is None:
+        return jsonify({'error': 'Task not found'}), 404
+    return jsonify({'task': task.to_dict(include_events=True)})
+
+
+# =============================================================================
 # INFLUENCER DISCOVERY API ENDPOINTS
 # =============================================================================
 
@@ -5483,7 +5509,7 @@ except ImportError as e:
 
 @app.route('/api/influencers/discover/<brand>', methods=['POST'])
 def api_discover_influencers(brand):
-    """Run influencer discovery for a specific brand"""
+    """Queue influencer discovery and make each phase observable in Task Center."""
     if not INFLUENCER_SYSTEM_AVAILABLE:
         return jsonify({'error': 'Influencer system not available'}), 503
     
@@ -5504,49 +5530,46 @@ def api_discover_influencers(brand):
                 ],
             }), 422
         
-        async def run_discovery():
-            discovery = BrandInfluencerDiscovery()
-            return await discovery.discover_brand_influencers(brand, max_per_platform)
-        
-        # Run the async discovery
-        results = asyncio.run(run_discovery())
-        
-        # Calculate summary
-        total_discovered = sum(len(influencers) for influencers in results.values())
-        platforms_used = len([p for p, influencers in results.items() if influencers])
+        def run_discovery(report):
+            report(5, f'Preparing discovery for {strategy.get("name", brand)}')
 
-        if total_discovered == 0:
-            return jsonify({
-                'success': False,
+            def platform_progress(progress, message):
+                report(progress, message)
+
+            discovery = BrandInfluencerDiscovery()
+            results = asyncio.run(discovery.discover_brand_influencers(
+                brand, max_per_platform, progress_callback=platform_progress,
+            ))
+            total_discovered = sum(len(influencers) for influencers in results.values())
+            platforms_used = len([items for items in results.values() if items])
+            summary = {
                 'brand': brand,
-                'brand_name': strategy.get('name', brand),
+                'brand_name': strategy.get('name') or BRAND_INFLUENCER_STRATEGIES.get(brand, {}).get('name', brand),
                 'results': {platform: len(influencers) for platform, influencers in results.items()},
-                'error': 'Discovery completed but found zero influencer candidates.',
-                'hints': [
-                    'Increase max_per_platform and retry discovery.',
-                    'Broaden brand keywords and target niches for this brand.',
-                    'Verify outbound HTTP access for platform scraping/APIs in this environment.',
-                ],
                 'summary': {
                     'total_discovered': total_discovered,
                     'platforms_searched': len(results),
                     'platforms_with_results': platforms_used,
                     'discovery_time': datetime.now().isoformat(),
                 },
-            }), 424
-        
+                'message': (f'Completed: found {total_discovered} candidate(s)' if total_discovered
+                            else 'Completed: no candidates found; broaden keywords or verify source access'),
+            }
+            return summary
+
+        task = start_background_task(
+            app,
+            title=f'Influencer discovery: {strategy.get("name", brand)}',
+            task_type='influencer_discovery',
+            brand_name=brand,
+            runner=run_discovery,
+        )
         return jsonify({
             'success': True,
-            'brand': brand,
-            'brand_name': strategy.get('name') or BRAND_INFLUENCER_STRATEGIES.get(brand, {}).get('name', brand),
-            'results': {platform: len(influencers) for platform, influencers in results.items()},
-            'summary': {
-                'total_discovered': total_discovered,
-                'platforms_searched': len(results),
-                'platforms_with_results': platforms_used,
-                'discovery_time': datetime.now().isoformat()
-            }
-        })
+            'queued': True,
+            'task': task.to_dict(),
+            'message': 'Discovery is running in the background. Open Task Center to follow each source.',
+        }), 202
         
     except Exception as e:
         return jsonify({

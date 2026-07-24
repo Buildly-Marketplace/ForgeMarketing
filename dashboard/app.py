@@ -452,22 +452,28 @@ def complete_onboarding():
         }
         settings.set_advanced_settings(advanced_settings)
 
-        # Create system config entries
-        sys_cfg = SystemConfig(
-            key='admin_email',
-            value=admin_email,
-            category='system',
-            description='Primary admin email'
-        )
-        db.session.add(sys_cfg)
+        # Upsert system configuration so onboarding is safe to retry after a
+        # partially initialized database or an interrupted previous attempt.
+        def save_system_config(key, value, description):
+            config = SystemConfig.query.filter_by(key=key).first()
+            if config:
+                config.value = value
+                config.category = 'system'
+                config.description = description
+            else:
+                db.session.add(SystemConfig(
+                    key=key,
+                    value=value,
+                    category='system',
+                    description=description,
+                ))
 
-        setup_cfg = SystemConfig(
-            key='setup_completed',
-            value=json.dumps({'completed': True, 'date': datetime.now().isoformat()}),
-            category='system',
-            description='Onboarding completion record'
+        save_system_config('admin_email', admin_email, 'Primary admin email')
+        save_system_config(
+            'setup_completed',
+            json.dumps({'completed': True, 'date': datetime.now().isoformat()}),
+            'Onboarding completion record',
         )
-        db.session.add(setup_cfg)
 
         db.session.commit()
 

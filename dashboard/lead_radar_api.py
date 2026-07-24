@@ -69,6 +69,13 @@ def require_login():
             'setup_url': setup_url,
             'action': 'sign_in',
         }), 401
+    # A brand can exist after onboarding before its owner has created the
+    # corresponding password/session. Send that first-time owner to the
+    # explanatory setup screen instead of a confusing bare login form.
+    admin_config = SystemConfig.query.filter_by(key='admin_email').first()
+    admin_email = (admin_config.value or '').strip().lower() if admin_config else ''
+    if admin_email and User.query.filter_by(email=admin_email).first() is None:
+        return redirect(url_for('auth.setup_account', next=request.path))
     return redirect(url_for('auth.login', next=request.path))
 
 

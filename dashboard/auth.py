@@ -63,6 +63,11 @@ def login():
     if current_user.is_authenticated:
         return redirect(next_url)
 
+    if request.method == 'GET' and _initial_account_setup_available():
+        # Avoid showing an unusable login form when onboarding has recorded an
+        # owner email but that owner has never created their first password.
+        return redirect(url_for('auth.setup_account', next=next_url))
+
     if request.method == 'GET':
         return render_template(
             'login.html', next=next_url,

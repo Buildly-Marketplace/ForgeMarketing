@@ -48,6 +48,12 @@
                     Sign In
                 </button>
             </form>
+            {% if setup_available %}
+            <div class="mt-6 pt-5 border-t border-gray-200 text-center">
+                <p class="text-sm text-gray-600">Finished onboarding but never created a password?</p>
+                <a href="{{ setup_url }}" class="inline-block mt-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">Finish account setup</a>
+            </div>
+            {% endif %}
         </div>
     </div>
 </body>

@@ -12,7 +12,7 @@ import logging
 import os
 import time
 
-from dashboard.models import db, User, UserBrand, Brand
+from dashboard.models import db, User, UserBrand, Brand, SystemConfig
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +24,17 @@ def _safe_next_url(candidate: str) -> str:
     if candidate and candidate.startswith('/') and not candidate.startswith('//'):
         return candidate
     return url_for('index')
+
+
+def _configured_admin_email() -> str:
+    config = SystemConfig.query.filter_by(key='admin_email').first()
+    return (config.value or '').strip().lower() if config else ''
+
+
+def _initial_account_setup_available() -> bool:
+    """Permit one local bootstrap only for the email supplied in onboarding."""
+    admin_email = _configured_admin_email()
+    return bool(admin_email and User.query.filter_by(email=admin_email).first() is None)
 
 # Shared secret for cross-app auth cookie (must match Django setting)
 _AUTH_COOKIE_SECRET = os.getenv('SHARED_AUTH_SECRET', 'forge-shared-auth-2025')
@@ -53,7 +64,11 @@ def login():
         return redirect(next_url)
 
     if request.method == 'GET':
-        return render_template('login.html', next=next_url)
+        return render_template(
+            'login.html', next=next_url,
+            setup_available=_initial_account_setup_available(),
+            setup_url=url_for('auth.setup_account', next=next_url),
+        )
 
     # POST — either JSON or form
     if request.is_json:
@@ -115,6 +130,58 @@ def login():
         samesite='Lax',
         secure=request.is_secure,
     )
+    return resp
+
+
+@auth_bp.route('/setup-account', methods=['GET', 'POST'])
+def setup_account():
+    """Create the one initial local admin account after brand onboarding.
+
+    Onboarding records the owner's email but deliberately does not collect a
+    password. This route turns that recorded owner into a real login exactly
+    once, then signs them in and assigns ownership of active brands.
+    """
+    next_url = _safe_next_url(request.args.get('next') or request.form.get('next') or '')
+    if current_user.is_authenticated:
+        return redirect(next_url)
+
+    admin_email = _configured_admin_email()
+    if not admin_email or not _initial_account_setup_available():
+        flash('An initial account is already set up. Sign in with that account, or ask an administrator to create one.', 'error')
+        return redirect(url_for('auth.login', next=next_url))
+
+    if request.method == 'GET':
+        return render_template('setup_account.html', admin_email=admin_email, next=next_url)
+
+    password = request.form.get('password') or ''
+    confirm_password = request.form.get('confirm_password') or ''
+    if len(password) < 8:
+        flash('Choose a password with at least 8 characters.', 'error')
+        return render_template('setup_account.html', admin_email=admin_email, next=next_url), 400
+    if password != confirm_password:
+        flash('The passwords do not match.', 'error')
+        return render_template('setup_account.html', admin_email=admin_email, next=next_url), 400
+
+    user = User(email=admin_email, display_name=admin_email.split('@')[0], is_admin=True, must_change_password=False)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.flush()
+    active_brands = Brand.query.filter_by(is_active=True).all()
+    for brand in active_brands:
+        db.session.add(UserBrand(user_id=user.id, brand_id=brand.id, role='owner'))
+    db.session.commit()
+
+    login_user(user)
+    user.last_login_at = datetime.utcnow()
+    if active_brands:
+        session['active_brand_id'] = active_brands[0].id
+        session['active_brand_name'] = active_brands[0].name
+    db.session.commit()
+
+    auth_token = _sign_auth_cookie(user.email, user.display_name or user.email)
+    resp = make_response(redirect(next_url))
+    resp.set_cookie(AUTH_COOKIE_NAME, auth_token, max_age=AUTH_COOKIE_MAX_AGE,
+                    path='/', httponly=True, samesite='Lax', secure=request.is_secure)
     return resp
 
 

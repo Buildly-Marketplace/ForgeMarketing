@@ -65,7 +65,11 @@ async function runDueSourcesFromHome() {
   });
   const json = await res.json();
   if (!json.success) {
-    alert(json.error || 'Failed to run due sources');
+    if (res.status === 401 || json.action === 'sign_in') {
+      showAuthenticationRequired(json.login_url, '/lead-radar', json.setup_url);
+    } else {
+      showNotification(json.error || 'Failed to run due sources', 'error');
+    }
     return;
   }
   alert(`Due sources executed. New candidates: ${json.data.total_candidates_created || 0}`);

@@ -357,7 +357,11 @@ function dashboard() {
                 const json = await res.json();
                 if (!json.success) {
                     if (!silent) {
-                        showNotification(json.error || 'Failed to run due research', 'error');
+                        if (res.status === 401 || json.action === 'sign_in') {
+                            showAuthenticationRequired(json.login_url, '/lead-radar', json.setup_url);
+                        } else {
+                            showNotification(json.error || 'Failed to run due research', 'error');
+                        }
                     }
                     return;
                 }

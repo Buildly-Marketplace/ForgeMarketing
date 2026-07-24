@@ -333,6 +333,25 @@
             }, 5000);
         }
 
+        // Reusable recovery UI for protected actions. It gives the user a
+        // destination and explains why the action cannot continue unauthenticated.
+        function showAuthenticationRequired(loginUrl, returnTo, setupUrl) {
+            const existing = document.getElementById('authenticationRequiredNotice');
+            if (existing) existing.remove();
+            const destination = setupUrl || loginUrl || `/login?next=${encodeURIComponent(returnTo || window.location.pathname + window.location.search)}`;
+            const needsSetup = Boolean(setupUrl);
+            const notice = document.createElement('div');
+            notice.id = 'authenticationRequiredNotice';
+            notice.className = 'fixed inset-0 z-[60] bg-slate-900/40 flex items-center justify-center p-4';
+            notice.innerHTML = '<section role="dialog" aria-modal="true" aria-labelledby="authenticationRequiredTitle" class="w-full max-w-md bg-white rounded-xl shadow-2xl p-6">' +
+                '<div class="flex items-start gap-3"><div class="w-10 h-10 shrink-0 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center"><i class="fas fa-lock"></i></div><div><h2 id="authenticationRequiredTitle" class="text-lg font-semibold text-slate-900">' + (needsSetup ? 'Finish account setup' : 'Sign in required') + '</h2><p class="mt-2 text-sm text-slate-600">' + (needsSetup ? 'Your brand is set up, but its admin sign-in has not been created yet. Choose a password once; you will be signed in and returned here.' : 'Lead Radar research can create candidates and activity records, so it requires a ForgeMarketing account. Sign in, then return here to run the research.') + '</p></div></div>' +
+                '<div class="mt-6 flex justify-end gap-3"><button type="button" class="auth-notice-cancel px-4 py-2 text-sm text-slate-600 hover:text-slate-900">Not now</button><a class="auth-notice-login px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700">' + (needsSetup ? 'Set up sign in' : 'Go to sign in') + '</a></div>' +
+                '</section>';
+            notice.querySelector('.auth-notice-login').href = destination;
+            notice.querySelector('.auth-notice-cancel').addEventListener('click', () => notice.remove());
+            document.body.appendChild(notice);
+        }
+
         // Shared task feedback contract for pages that start background work.
         // It exposes real server events only; it never simulates progress.
         window.ForgeTasks = (() => {

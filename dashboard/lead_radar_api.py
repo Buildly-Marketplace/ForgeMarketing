@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from flask import Blueprint, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user
 
-from dashboard.models import Brand, db
+from dashboard.models import Brand, SystemConfig, User, db
 from dashboard.lead_radar_models import (
     Lead,
     LeadActivity,
@@ -54,7 +54,21 @@ def require_login():
     if getattr(current_user, 'is_authenticated', False):
         return None
     if request.path.startswith('/api/'):
-        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        # API callers need a recovery path, not just a bare 401. Lead Radar is
+        # intentionally protected because research jobs can create CRM data.
+        admin_config = SystemConfig.query.filter_by(key='admin_email').first()
+        admin_email = (admin_config.value or '').strip().lower() if admin_config else ''
+        setup_url = None
+        if admin_email and User.query.filter_by(email=admin_email).first() is None:
+            setup_url = url_for('auth.setup_account', next='/lead-radar')
+        return jsonify({
+            'success': False,
+            'error': 'Authentication required',
+            'message': 'Sign in to ForgeMarketing before running Lead Radar research.',
+            'login_url': url_for('auth.login', next='/lead-radar'),
+            'setup_url': setup_url,
+            'action': 'sign_in',
+        }), 401
     return redirect(url_for('auth.login', next=request.path))
 
 
